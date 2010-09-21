@@ -30,3 +30,5 @@ static/tiki.js
 plugins/thirdparty/jquery.js
 frameworks/tiki
 
+/pavement.py
+
