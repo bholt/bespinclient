@@ -9,7 +9,7 @@
 /*
 HOW TO USE:
 
-	1.	Copy this file to the /bespinclient/plugins/thirdparty directory
+	1.	Copy this plugin to the /bespinclient/plugins/thirdparty directory
 
 	2.	Run these commands in the Bespin "shell" (terminal):
 			{}> plugin reload highlight_all
@@ -44,15 +44,23 @@ INSPECTING THE API:
 
 NOTES:
 
-	1.	Functions and variable names that begin with an underscore (_) are considered "private".
-	2.	By default, text search is case-insensitive.
+	1.	Styling highlighted occurrences requires the presence of an "occurrence" property in "highlighterFG" and "highlighterBG" in plugins/supported/text_editor/package.json
+	2.	By default, occurrence matching is case-sensitive.  This can be overridden by setting any of the following to false:
+		a)	The second argument passed to the constructor:
+				var highlighterObj = new Highlighter(env.editor, false)
+		b)	The caseSensitive property:
+				highlighterObj.caseSensitive = false
+		c)	The global _caseSensitiveDefault property:
+				exports.Highlighter.prototype._caseSensitiveDefault = false
 
 ISSUES:
 
-	1.	May need some optimizations to improve speed, efficiency, performance, etc.
-	2.	A new theme tag is required for highlighted occurrences; right now we're just hijacking the "addition" tag
-	3.	Double-clicking sometimes highlights all occurrences and then immediately removes the highlighting
-		(This problem is caused by one or more of the Bespin core plugins, not highlight_all)
+	1.	The algorithm used by _highlightAll() and _highlightRange() is slow when editing large files (> 1,000 lines) with many occurrences.
+		It takes approximately 0.5 sec to highlight all occurrences of "this" in a typical JavaScript file with around 5,500 lines of code.
+		It may need to be re-worked slightly to improve its speed and efficiency.
+	2.	Double-clicking sometimes highlights all occurrences and then immediately removes the highlights.
+		This strange double-click behavior is part of the Bespin core, not highlight_all, but it would be good to fix the bug anyway.
+		It likely has something to do with the timing of firing the editor's "click" and "double-click" event handlers.
 
 UNIT TESTING (TODO):
 
@@ -69,6 +77,7 @@ RegExp.escape = function(text) {
 // Load required plugin files
 var console = require('bespin:console').console;
 var rangeUtils = require('rangeutils:utils/range');
+var util = require('bespin:util/util');
 var env = require('environment').env;
 var $ = require('jquery').$;
 var jQuery = $;
@@ -80,7 +89,7 @@ var jQuery = $;
  */
 exports.Highlighter = function(editor, caseSensitive) {
 	this.editor = editor || env.editor;
-	this.caseSensitive = caseSensitive || false;
+	this.caseSensitive = caseSensitive;
 	
 	// Bind event handler for text selection
 	this.editor.selectionChanged.add(this.selectionChanged.bind(this));
@@ -101,8 +110,15 @@ exports.Highlighter.prototype = {
 	// Enable/disable verbose console output
 	DEBUG: false,
 	
+	// Enable/disable profiling in Firebug (to see how long each function takes to do its thing)
+	PROFILE: false,
+	
 	// Whether highlighting is turned on (i.e., all occurrences are being physically highlighted at this exact moment)
 	_highlight: false,
+	
+	// Whether occurrence matching is case sensitive or not
+	_caseSensitive: undefined,
+	_caseSensitiveDefault: true,
 	
 	// Collection of all occurrences of a selected word or variable
 	_occurrences: [],
@@ -115,6 +131,10 @@ exports.Highlighter.prototype = {
 	 * Finds all occurrences of the currently selected text (if any) and highlights them.
 	 */
 	selectionChanged: function(newRange) {
+		if(this.PROFILE) {
+			console.profile();
+		}
+		
 		// Invalid argument; abandon ship!
 		if(!rangeUtils.isRange(newRange)) {
 			return;
@@ -135,6 +155,10 @@ exports.Highlighter.prototype = {
 		if(this._occurrences.length > 0) {
 			// A setter function is called whenever this value is set
 			this.highlight = true;
+		}
+		
+		if(this.PROFILE) {
+			console.profileEnd();
 		}
 	},
 	
@@ -172,7 +196,7 @@ exports.Highlighter.prototype = {
 		// Check the characters before and after the user's selection and verify that the selection
 		// constitutes a complete word (i.e., selection starts and stops at word boundaries).
 		if(this._isSingleWordSelected(chars)) {
-			this._findAllOccurrences(range, chars);
+			this._findAllOccurrences(range.selected, chars.selected);
 		}
 	},
 	
@@ -180,29 +204,25 @@ exports.Highlighter.prototype = {
 	// this function determines if the user selected an entire word (e.g., they selected "variable_name" from "var variable_name = 3").
 	_isSingleWordSelected: function(chars) {
 		// Is the selected text entirely "word characters" (e.g., a-z, A-Z, 0-9, and _)?
-		var isSelectionWordChars = /^[\w_]+$/.test(chars.selected);
+		var allWordChars = /^[\w_]+$/.test(chars.selected);
 		
 		// Is the selected word a complete word, separated from other nearby words by a word boundary or a non-"word character"?
-		var isSelectedWordDistinct = new RegExp("^[^\\w_]?\\b" + RegExp.escape(chars.selected) + "\\b[^\\w_]?$", "i").test(chars.extended);
+		var completeWord = new RegExp("^[^\\w_]?\\b" + RegExp.escape(chars.selected) + "\\b[^\\w_]?$", "i").test(chars.extended);
 		
 		// If both conditions are met, the user has selected a single, distinct word
-		return isSelectionWordChars && isSelectedWordDistinct;
+		return allWordChars && completeWord;
 	},
 	
-	_findAllOccurrences: function(range, chars) {
+	_findAllOccurrences: function(selectedRange, selectedChars) {
 		if(this.DEBUG) {
-			console.log('\tNon whitespace range: "', chars.selected, '" ', range.selected);
+			console.log('\tNon whitespace range: "', selectedChars, '" ', selectedRange);
 		}
 		
 		// Flags for regular expression to search for text
-		var flags = 'g';
-		
-		if(!this.caseSensitive) {
-			flags += 'i'; // i=caseInsensitive
-		}
+		var flags = this.caseSensitive ? 'g' : 'gi';
 		
 		// Regular Expression to match whole words only
-		var searchRegex = new RegExp('\\b(' + RegExp.escape(chars.selected) + ')\\b', flags);
+		var searchRegex = new RegExp('\\b(' + RegExp.escape(selectedChars) + ')\\b', flags);
 		
 		// Set search params
 		this.editor.searchController.setSearchText(searchRegex, /* isRegExp = */ true);
@@ -210,25 +230,26 @@ exports.Highlighter.prototype = {
 		// Loop counter for debugging output
 		this._i = 1;
 		
-		// Initial placeholder values for this.editor.searchController.findNext() and rangeUtils.equal()
+		// Initial dummy values for editor.searchController.findNext() and rangeUtils.equal()
 		var curOccurrence = { end: { col: 0, row: 0 } };
 		var firstOccurrence;
 		
 		// Loop through every search result for the text in the editor
 		while(curOccurrence = this._getNextOccurrence(curOccurrence)) {
-			// Search wrapped around to the first result,
-			// which means we've processed all results.
-			if(firstOccurrence && rangeUtils.equal(curOccurrence, firstOccurrence)) {
+			// Search wrapped around to the first occurrence, which means we've processed all occurrences.
+			if(firstOccurrence && curOccurrence === firstOccurrence) {
 				break;
+			}
+			// Current occurrence is the user's selection; ignore this occurrence.
+			else if(rangeUtils.equal(curOccurrence, selectedRange)) {
+				continue;
 			}
 			
 			// Check the current occurrence and add it to the list of occurrences, if necessary
-			this._handleOccurrence(curOccurrence, range);
+			this._handleOccurrence(curOccurrence);
 			
-			// If the first result hasn't been initialized, initialize it
-			if(!firstOccurrence) {
-				firstOccurrence = curOccurrence;
-			}
+			// Remember the first occurrence
+			firstOccurrence = firstOccurrence || curOccurrence;
 		}
 	},
 	
@@ -236,25 +257,22 @@ exports.Highlighter.prototype = {
 		return this.editor.searchController.findNext(/* startPos = */ curOccurrence.end, /* allowFromStart = */ false);
 	},
 	
-	_handleOccurrence: function(curOccurrence, range) {
-		// Only consider results that are NOT the currently selected text range
-		if(!rangeUtils.equal(curOccurrence, range.selected)) {
-			var occurrenceText = this.editor.getText(curOccurrence);
-			var row = curOccurrence.start.row;
-			
-			// Add the current row to the list of rows if it is not already present
-			if(this._rows.indexOf(row) == -1) {
-				this._rows.push(row);
-			}
-			
-			// Add occurrence to the list
-			this._occurrences.push({
-				range: curOccurrence,
-				text: occurrenceText
-			});
-			
-			this._logOccurrence(curOccurrence, occurrenceText);
+	_handleOccurrence: function(curOccurrence) {
+		var occurrenceText = this.editor.getText(curOccurrence);
+		var row = curOccurrence.start.row;
+		
+		// Add the current row to the list of rows if it is not already present
+		if(this._rows.indexOf(row) === -1) {
+			this._rows.push(row);
 		}
+		
+		// Add occurrence to the list
+		this._occurrences.push({
+			range: curOccurrence,
+			text: occurrenceText
+		});
+		
+		this._logOccurrence(curOccurrence, occurrenceText);
 	},
 	
 	_logOccurrence: function(curOccurrence, occurrenceText) {
@@ -270,7 +288,7 @@ exports.Highlighter.prototype = {
 	 * Highlights all occurrences of the selected text
 	 */
 	_highlightAll: function() {
-		if(this._occurrences.length == 0) {
+		if(this._occurrences.length === 0) {
 			return;
 		}
 		
@@ -291,58 +309,33 @@ exports.Highlighter.prototype = {
 			console.log('\trow ', range.start.row, ' colors:');
 		}
 		
-		var layoutManager = this.editor.layoutManager;
-		
 		var row = range.start.row;
-		var line = layoutManager.textLines[row];
+		var line = this.editor.layoutManager.textLines[row];
 		var colors = line.colors;
-		
-		if(this.DEBUG) {
-			console.log('\t\tbefore highlight: ', colors);
-		}
 		
 		var highlightColor = {
 			start: range.start.col,
 			end: range.end.col,
 			state: [],
-			tag: 'addition',
+			tag: 'occurrence',
 			_highlight: {
 				remove: true
 			}
 		};
 		
-		// Loop backwards to prevent an infinite loop
-		for(var i = colors.length - 1; i >= 0; i--) {
+		if(this.DEBUG) {
+			console.log('\t\tbefore highlight: ', colors);
+		}
+		
+		for(var i = 0; i < colors.length; i++) {
 			var color = colors[i];
 			
+			// Current color spans the range that our new highlight color will occupy
 			if(highlightColor.start >= color.start && highlightColor.end <= color.end) {
-				// Reference to "color" variable (the new name helps make the code easier to understand)
-				var leftColor = color;
+				// Insert a new highlighted syntax color into the line's color array
+				this._insertColor(colors, i, highlightColor);
 				
-				leftColor._highlight = leftColor._highlight || {};
-				
-				// Make a deep clone of leftColor
-				var rightColor = $.extend(true, {}, leftColor);
-				
-				// Mark rightColor for removal during cleanup
-				rightColor._highlight.remove = true;
-				
-				// Save original start/end values
-				leftColor._highlight.start = leftColor.start;
-				leftColor._highlight.end = leftColor.end;
-				
-				// Set new end value for leftColor
-				leftColor.end = highlightColor.start;
-				
-				// Set new start value for rightColor
-				rightColor.start = highlightColor.end;
-				
-				// Copy leftColor's "state" to highlightColor
-				highlightColor.state = $.extend(true, [], leftColor.state);
-				
-				// Inject highlightColor and rightColor into the array of colors
-				colors.splice(i + 1, 0, highlightColor, rightColor);
-				
+				// We're done!
 				break;
 			}
 		}
@@ -352,8 +345,37 @@ exports.Highlighter.prototype = {
 		}
 	},
 	
+	_insertColor: function(colors, index, highlightColor) {
+		// Reference to existing color object
+		var leftColor = colors[index];
+		
+		leftColor._highlight = leftColor._highlight || {};
+		
+		// Make a deep clone of leftColor
+		var rightColor = $.extend(true, {}, leftColor);
+		
+		// Mark rightColor for removal during cleanup
+		rightColor._highlight.remove = true;
+		
+		// Save original start/end values
+		leftColor._highlight.start = leftColor.start;
+		leftColor._highlight.end = leftColor.end;
+		
+		// Set new end value for leftColor
+		leftColor.end = highlightColor.start;
+		
+		// Set new start value for rightColor
+		rightColor.start = highlightColor.end;
+		
+		// Clone leftColor's "state" property
+		highlightColor.state = $.extend(true, [], leftColor.state);
+		
+		// Insert highlightColor and rightColor into the array of colors -after- leftColor
+		colors.splice(index + 1, 0, highlightColor, rightColor);
+	},
+	
 	_removeHighlight: function() {
-		if(this._occurrences.length == 0) {
+		if(this._occurrences.length === 0) {
 			return;
 		}
 		
@@ -363,53 +385,77 @@ exports.Highlighter.prototype = {
 			console.log('\t._occurrences: ', this._occurrences);
 		}
 		
-		var layoutManager = this.editor.layoutManager;
-		
 		// Loop through each row of occurrences and remove highlighting
-		this._rows.forEach(function(row, index, collection) {
-			if(this.DEBUG) {
-				console.log('\trow ', row, ' colors:');
-			}
-			
-			var line = layoutManager.textLines[row];
-			var colors = line.colors;
-			
-			if(this.DEBUG) {
-				console.log('\t\tbefore removing highlight: ', colors);
-			}
+		this._rows.forEach(this._removeRowHighlight.bind(this));
+	},
+	
+	_removeRowHighlight: function(row) {
+		if(this.DEBUG) {
+			console.log('\trow ', row, ' colors:');
+		}
 		
-			// Loop backwards to prevent an infinite loop
-			for(var i = colors.length - 1; i >= 0; i--) {
-				var color = colors[i];
-			
-				if(color._highlight) {
-					// Remove the current color
-					if(color._highlight.remove) {
-						colors.splice(i, 1);
-					}
-					// Reset the current color's original start and end values
-					else {
-						color.start = color._highlight.start;
-						color.end = color._highlight.end;
-					
-						delete color._highlight;
-					}
-				}
-			}
+		var line = this.editor.layoutManager.textLines[row];
+		var colors = line.colors;
 		
-			if(this.DEBUG) {
-				console.log('\t\tafter removing highlight: ', colors);
+		if(this.DEBUG) {
+			console.log('\t\tbefore removing highlight: ', colors);
+		}
+		
+		// Loop backwards to prevent an infinite loop
+		for(var i = colors.length - 1; i >= 0; i--) {
+			var color = colors[i];
+			
+			// Current color was inserted dynamically by this plugin
+			if(color._highlight) {
+				this._restoreColor(colors, i);
 			}
-		});
+		}
+	
+		if(this.DEBUG) {
+			console.log('\t\tafter removing highlight: ', colors);
+		}
+	},
+	
+	_restoreColor: function(colors, index) {
+		var color = colors[index];
+		
+		// Color is marked for removal; remove it
+		if(color._highlight.remove) {
+			colors.splice(index, 1);
+		}
+		// Reset the current color's original start and end values
+		else {
+			color.start = color._highlight.start;
+			color.end = color._highlight.end;
+		
+			delete color._highlight;
+		}
 	}
 	
 };
 
 Object.defineProperties(exports.Highlighter.prototype, {
+	caseSensitive: {
+		set: function(enable) {
+			var newVal = typeof enable !== 'undefined' ? enable : this._caseSensitiveDefault;
+			var changed = this._caseSensitive !== newVal;
+			
+			this._caseSensitive = newVal;
+			
+			if(changed) {
+				this.selectionChanged(this.editor.textView.getSelectedRange());
+			}
+		},
+		
+		get: function() {
+			return this._caseSensitive;
+		}
+	},
+	
 	highlight: {
-		set: function(enableHighlight) {
+		set: function(enable) {
 			// Turn on highlighting
-			if(enableHighlight) {
+			if(enable) {
 				this._highlight = true;
 				this._highlightAll();
 			}
