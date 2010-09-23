@@ -31,4 +31,5 @@ plugins/thirdparty/jquery.js
 frameworks/tiki
 
 /pavement.py
+/bespin.log
 
