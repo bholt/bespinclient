@@ -37,6 +37,8 @@
 
 var catalog = require('bespin:plugins').catalog;
 
+var env = require('environment').env;
+
 function Logo() {
     var li = document.createElement('li');
     var img = document.createElement('img');
@@ -58,14 +60,38 @@ function Save() {
     this.element = li;
 }
 
-function PositionIndicator() {
+exports.PositionIndicator = function PositionIndicator() {
     var li = document.createElement('li');
-    li.innerHTML = "Row 0, Column 0";
+    this.editor = env.editor;
+    
+    this.editor.selectionChanged.add(this.positionChanged.bind(this));
+    //var row;
+    //var col;
+    //while (!env.editor) {
+    //    sleep(100);
+    //}
+    //row = env.editor.selection.start.row;
+    //col = env.editor.selection.start.col;
+    //li.innerHTML = "Row - " + row + ", Column - " + col;
     this.element = li;
-}
+    while (env.editor == null) { sleep(100); }
+    var row = env.editor.selection.start.row;
+    var col = env.editor.selection.start.col;
+    this.element.innerHTML = "row:" + (row + 1) + " col:" + (col + 1);
+    
+    //this.positionChanged().bind(this);
+};
+
+exports.PositionIndicator.prototype = {
+    positionChanged: function() {
+        while (env.editor == null) { sleep(100); }
+        var row = env.editor.selection.start.row;
+        var col = env.editor.selection.start.col;
+        this.element.innerHTML = "row:" + (row + 1) + " col:" + (col + 1);
+    }
+};
+
 
 exports.Logo = Logo;
 exports.OpenFileIndicator = OpenFileIndicator;
 exports.Save = Save;
-exports.PositionIndicator = PositionIndicator;
-
