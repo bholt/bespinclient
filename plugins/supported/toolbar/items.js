@@ -39,6 +39,8 @@ var catalog = require('bespin:plugins').catalog;
 
 var env = require('environment').env;
 
+var Promise = require('bespin:promise').Promise;
+
 function Logo() {
     var li = document.createElement('li');
     var img = document.createElement('img');
@@ -61,36 +63,23 @@ function Save() {
 }
 
 exports.PositionIndicator = function PositionIndicator() {
-    var li = document.createElement('li');
-    this.editor = env.editor;
-    
-    this.editor.selectionChanged.add(this.positionChanged.bind(this));
-    //var row;
-    //var col;
-    //while (!env.editor) {
-    //    sleep(100);
-    //}
-    //row = env.editor.selection.start.row;
-    //col = env.editor.selection.start.col;
-    //li.innerHTML = "Row - " + row + ", Column - " + col;
-    this.element = li;
-    while (env.editor == null) { sleep(100); }
-    var row = env.editor.selection.start.row;
-    var col = env.editor.selection.start.col;
-    this.element.innerHTML = "row:" + (row + 1) + " col:" + (col + 1);
-    
-    //this.positionChanged().bind(this);
+    this.element = document.createElement('li');
+    this.init.call(this);
 };
 
 exports.PositionIndicator.prototype = {
-    positionChanged: function() {
-        while (env.editor == null) { sleep(100); }
-        var row = env.editor.selection.start.row;
-        var col = env.editor.selection.start.col;
-        this.element.innerHTML = "row:" + (row + 1) + " col:" + (col + 1);
-    }
+	init: function() {
+		if(env.editor) {
+			env.editor.selectionChanged.add(this.updatePosition.bind(this));
+		} else {
+			setTimeout(this.init.bind(this), 100);
+		}
+	},
+	updatePosition: function(range) {
+		range = range || env.editor.selection;
+		this.element.innerHTML = "Row " + (range.end.row + 1) + ", Column " + (range.end.col + 1);
+	}
 };
-
 
 exports.Logo = Logo;
 exports.OpenFileIndicator = OpenFileIndicator;

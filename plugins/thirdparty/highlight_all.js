@@ -1,8 +1,14 @@
 "define metadata";
 ({
 	"description": "Highlights all occurrences of a selected word",
-	"dependencies": {},
-	"provides": []
+	"dependencies": { "standard_syntax": "0.0.0", "jquery": "0.0.0" },
+	"provides": [
+		{
+			"ep": "extensionpoint",
+			"name": "highlight_all",
+			"description": "Highlights all occurrences of a word or variable when the user selects it in the editor"
+		}
+	]
 });
 "end";
 
@@ -22,25 +28,6 @@ HOW TO USE:
 	
 	2.b	Run this command in the Firebug console:
 			>>> bespin.tiki.sandbox.require('highlight_all');
-
-INSPECTING THE API:
-
-	(function() {
-		var $ = bespin.tiki.sandbox.exports["::jquery:index"].exports.$;
-		var rangeUtils = bespin.tiki.sandbox.require('rangeutils:utils/range');
-		var env = bespin.tiki.sandbox.require('environment').env;
-		var editor = env.editor;
-		
-		// Useful properties and functions:
-		editor.layoutManager.textLines.length;
-		editor.layoutManager.updateTextRows(startRow, stopRow);
-		editor.textView._getContext()
-		editor.textView.invalidate()
-		editor.textView.clippingFrameChanged()
-		
-		console.log(env);
-		console.log(editor);
-	})();
 
 NOTES:
 
@@ -68,19 +55,18 @@ UNIT TESTING (TODO):
 
 */
 
-// Utility function to escape special regex "metacharacters" in a string.
-// Useful for sanitizing user input so it can be used in regular expressions.
-RegExp.escape = function(text) {
-	return text.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, "\\$&");
-}
-
 // Load required plugin files
 var console = require('bespin:console').console;
 var rangeUtils = require('rangeutils:utils/range');
 var util = require('bespin:util/util');
 var env = require('environment').env;
 var $ = require('jquery').$;
-var jQuery = $;
+
+// Utility function to escape special regex "metacharacters" in a string.
+// Useful for sanitizing user input so it can be used in regular expressions.
+RegExp.escape = function(text) {
+	return text.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, "\\$&");
+}
 
 /*
  * @class
@@ -94,6 +80,7 @@ exports.Highlighter = function(editor, caseSensitive) {
 	// Bind event handler for text selection
 	this.editor.selectionChanged.add(this.selectionChanged.bind(this));
 	
+	// For easy debugging in Firebug
 	window.highlighter = this;
 };
 
@@ -180,7 +167,7 @@ exports.Highlighter.prototype = {
 		
 		// Make a deep copy of the selected range
 		// See http://api.jquery.com/jQuery.extend/
-		range.extended = jQuery.extend(true, {}, range.selected);
+		range.extended = $.extend(true, {}, range.selected);
 		
 		// Extend the selected range by 1 character in each direction (effectively adds the character before and after the selected text)
 		range.extended.start.col -= 1;
