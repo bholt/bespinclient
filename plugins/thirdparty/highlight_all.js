@@ -78,10 +78,9 @@ exports.Highlighter = function(editor, caseSensitive) {
 	this.caseSensitive = caseSensitive;
 	
 	// Bind event handler for text selection
-	this.editor.selectionChanged.add(this.selectionChanged.bind(this));
+	this.editor.selectionChanged.add('highlight_all', this.selectionChanged.bind(this));
 	
-	// For easy debugging in Firebug
-	window.highlighter = this;
+	this._log('highlight_all plugin initialized!');
 };
 
 /*
@@ -176,9 +175,7 @@ exports.Highlighter.prototype = {
 		// Get the characters that make up the extended selection range
 		chars.extended = this.editor.getText(range.extended); // or: this.editor.layoutManager.textStorage.getCharacters(range.extended)
 		
-		if(this.DEBUG) {
-			console.log('Non zero-length range: { selected: "', chars.selected, '", extended: "', chars.extended, '" }');
-		}
+		this._log('Non zero-length range: { selected: "', chars.selected, '", extended: "', chars.extended, '" }');
 		
 		// Check the characters before and after the user's selection and verify that the selection
 		// constitutes a complete word (i.e., selection starts and stops at word boundaries).
@@ -201,9 +198,7 @@ exports.Highlighter.prototype = {
 	},
 	
 	_findAllOccurrences: function(selectedRange, selectedChars) {
-		if(this.DEBUG) {
-			console.log('\tNon whitespace range: "', selectedChars, '" ', selectedRange);
-		}
+		this._log('\tNon whitespace range: "', selectedChars, '" ', selectedRange);
 		
 		// Flags for regular expression to search for text
 		var flags = this.caseSensitive ? 'g' : 'gi';
@@ -263,12 +258,10 @@ exports.Highlighter.prototype = {
 	},
 	
 	_logOccurrence: function(curOccurrence, occurrenceText) {
-		if(this.DEBUG) {
-			console.log('\t\tSearch result ', this._i++, ': ' + 
-						'(', curOccurrence.start.row, ', ', curOccurrence.start.col, ') to ' +
-						'(', curOccurrence.end.row, ', ', curOccurrence.end.col, '): ' +
-						'"', occurrenceText, '"');
-		}
+		this._log('\t\tSearch result ', this._i++, ': ' + 
+				  '(', curOccurrence.start.row, ', ', curOccurrence.start.col, ') to ' +
+				  '(', curOccurrence.end.row, ', ', curOccurrence.end.col, '): ' +
+				  '"', occurrenceText, '"');
 	},
 	
 	/*
@@ -279,11 +272,9 @@ exports.Highlighter.prototype = {
 			return;
 		}
 		
-		if(this.DEBUG) {
-			console.log(' ');
-			console.log('_highlightAll():');
-			console.log('\t._occurrences: ', this._occurrences);
-		}
+		this._log(' ');
+		this._log('_highlightAll():');
+		this._log('\t._occurrences: ', this._occurrences);
 		
 		for(var i = 0; i < this._occurrences.length; i++) {
 			this._highlightRange(this._occurrences[i].range);
@@ -292,9 +283,7 @@ exports.Highlighter.prototype = {
 	
 	// Inserts a highlight style for the given text range into the line's syntax styles
 	_highlightRange: function(range) {
-		if(this.DEBUG) {
-			console.log('\trow ', range.start.row, ' colors:');
-		}
+		this._log('\trow ', range.start.row, ' colors:');
 		
 		var row = range.start.row;
 		var line = this.editor.layoutManager.textLines[row];
@@ -310,9 +299,7 @@ exports.Highlighter.prototype = {
 			}
 		};
 		
-		if(this.DEBUG) {
-			console.log('\t\tbefore highlight: ', colors);
-		}
+		this._log('\t\tbefore highlight: ', colors);
 		
 		for(var i = 0; i < colors.length; i++) {
 			var color = colors[i];
@@ -327,9 +314,7 @@ exports.Highlighter.prototype = {
 			}
 		}
 		
-		if(this.DEBUG) {
-			console.log('\t\tafter highlight: ', colors);
-		}
+		this._log('\t\tafter highlight: ', colors);
 	},
 	
 	_insertColor: function(colors, index, highlightColor) {
@@ -366,27 +351,21 @@ exports.Highlighter.prototype = {
 			return;
 		}
 		
-		if(this.DEBUG) {
-			console.log(' ');
-			console.log('_removeHighlight():');
-			console.log('\t._occurrences: ', this._occurrences);
-		}
+		this._log(' ');
+		this._log('_removeHighlight():');
+		this._log('\t._occurrences: ', this._occurrences);
 		
 		// Loop through each row of occurrences and remove highlighting
 		this._rows.forEach(this._removeRowHighlight.bind(this));
 	},
 	
 	_removeRowHighlight: function(row) {
-		if(this.DEBUG) {
-			console.log('\trow ', row, ' colors:');
-		}
+		this._log('\trow ', row, ' colors:');
 		
 		var line = this.editor.layoutManager.textLines[row];
 		var colors = line.colors;
 		
-		if(this.DEBUG) {
-			console.log('\t\tbefore removing highlight: ', colors);
-		}
+		this._log('\t\tbefore removing highlight: ', colors);
 		
 		// Loop backwards to prevent an infinite loop
 		for(var i = colors.length - 1; i >= 0; i--) {
@@ -398,9 +377,7 @@ exports.Highlighter.prototype = {
 			}
 		}
 	
-		if(this.DEBUG) {
-			console.log('\t\tafter removing highlight: ', colors);
-		}
+		this._log('\t\tafter removing highlight: ', colors);
 	},
 	
 	_restoreColor: function(colors, index) {
@@ -416,6 +393,12 @@ exports.Highlighter.prototype = {
 			color.end = color._highlight.end;
 		
 			delete color._highlight;
+		}
+	},
+	
+	_log: function() {
+		if(this.DEBUG) {
+			console.log.apply(this, arguments);
 		}
 	}
 	
@@ -460,15 +443,13 @@ Object.defineProperties(exports.Highlighter.prototype, {
 			return this._highlight;
 		}
 	}
-})
+});
 
 // [API]: Special "destructor" function.
 // Gets called before the plugin is reloaded.
 exports.cleanup = function() {
-	env.editor.selectionChanged.remove(exports.Highlighter.selectionChanged);
+	env.editor.selectionChanged.remove('highlight_all');
 }
 
 // Initialize selection highlighting in the editor
-new exports.Highlighter(env.editor);
-
-console.log('highlight_all plugin initialized!');
+exports.instance = window.highlighter = new exports.Highlighter(env.editor);
