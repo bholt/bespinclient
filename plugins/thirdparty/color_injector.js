@@ -70,7 +70,7 @@ exports.ColorInjector.prototype = {
 		if(!line.colors._injected) {
 			this._cleanColors[row] = line.colors;
 			
-			line.colors = $.extend(false, [], line.colors);
+			line.colors = $.extend(true, [], line.colors);
 			line.colors._injected = true;
 		}
 		
