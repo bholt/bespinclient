@@ -56,11 +56,20 @@ function OpenFileIndicator() {
     this.element = li;
 }
 
-function Save() {
-    var li = document.createElement('li');
-    li.innerHTML = "Save";
-    this.element = li;
-}
+exports.Save = function Save() {
+    this.element = document.createElement('li');
+	this.element.innerHTML = 'Save';
+	//this.init();
+};
+/*exports.Save.prototype = {
+	init: function() {
+		this.element.addEventListener('click', this._save);
+	},
+	_save: function() {
+		
+	}
+}*/
+
 
 exports.PositionIndicator = function PositionIndicator() {
     this.element = document.createElement('li');
@@ -77,10 +86,9 @@ exports.PositionIndicator.prototype = {
 	},
 	updatePosition: function(range) {
 		range = range || env.editor.selection;
-		this.element.innerHTML = "Row " + (range.end.row + 1) + ", Column " + (range.end.col + 1);
+		this.element.innerHTML = "Row: " + (range.end.row + 1) + " Col: " + (range.end.col + 1);
 	}
 };
 
 exports.Logo = Logo;
 exports.OpenFileIndicator = OpenFileIndicator;
-exports.Save = Save;

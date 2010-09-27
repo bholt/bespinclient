@@ -1,4 +1,4 @@
-var rangeUtils = bespin.tiki.sandbox.require('rangeutils:utils/range');
+/*var rangeUtils = bespin.tiki.sandbox.require('rangeutils:utils/range');
 
 highlighter.editor.selectionChanged.remove('pairChars');
 highlighter.editor.selectionChanged.add('pairChars', function(range) {
@@ -12,4 +12,5 @@ highlighter.editor.selectionChanged.add('pairChars', function(range) {
     if(Math.abs(range.start.col - range.end.col) === 1) {
         console.log(highlighter.editor.getText(range));
     }
-});
+});*/
+
