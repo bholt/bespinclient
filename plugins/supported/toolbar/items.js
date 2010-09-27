@@ -58,16 +58,17 @@ function OpenFileIndicator() {
 
 exports.Save = function Save() {
     this.element = document.createElement('li');
-	this.init();
+	this.element.innerHTML = 'Save';
+	//this.init();
 };
-exports.Save.prototype = {
+/*exports.Save.prototype = {
 	init: function() {
 		this.element.addEventListener('click', this._save);
 	},
 	_save: function() {
 		
 	}
-}
+}*/
 
 
 exports.PositionIndicator = function PositionIndicator() {
@@ -79,7 +80,6 @@ exports.PositionIndicator.prototype = {
 	init: function() {
 		if(env.editor) {
 			env.editor.selectionChanged.add(this.updatePosition.bind(this));
-			this.updatePosition.call(this);
 		} else {
 			setTimeout(this.init.bind(this), 100);
 		}
