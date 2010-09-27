@@ -94,10 +94,24 @@ exports.Buffer = function(file, initialContent) {
     }
 
     // Use the saved values from the history or the default values.
-    this._selectedRange = selection || {
+
+    this.selectedRange = selection || {
         start: { row: 0, col: 0 },
         end: { row: 0, col: 0 }
     };
+
+	/*
+	var tmpSelection = selection || {
+        start: { row: 0, col: 0 },
+        end: { row: 0, col: 0 }
+    };
+
+	if(env.editor) {
+		env.editor.textView.setSelection(tmpSelection);
+	} else {
+		this._selectedRange = tmpSelection;
+	}
+	*/
 
     this._scrollOffset = scrollOffset || { x: 0, y: 0 };
 };
@@ -113,7 +127,10 @@ exports.Buffer.prototype = {
     _scrollOffset: null,
     _selectedRange: null,
     _selectedRangeEndVirtual: null,
-
+	
+	
+	_selectedRange: null,
+	
     /**
      * The syntax manager associated with this file.
      */
@@ -190,6 +207,23 @@ exports.Buffer.prototype = {
 };
 
 Object.defineProperties(exports.Buffer.prototype, {
+	
+	selectedRange: {
+		get: function() {
+			return this._selectedRange;
+		},
+		
+		set: function(range) {
+			this._selectedRange = range;
+			
+			if(env.editor) {
+				env.editor.selectionChanged(range);
+				//env.editor.textView.setSelection(range);
+			}
+		}
+	},
+	
+	
     layoutManager: {
         get: function() {
             return this._layoutManager;

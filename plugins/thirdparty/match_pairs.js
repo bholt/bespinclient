@@ -12,6 +12,10 @@
 });
 "end";
 
+/*
+TODO: don't highlight brackets in comments!
+*/
+
 var console = require('bespin:console').console;
 var rangeUtils = require('rangeutils:utils/range');
 var util = require('bespin:util/util');
