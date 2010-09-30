@@ -191,7 +191,7 @@ exports.Highlighter.prototype = {
 		var allWordChars = /^[\w_]+$/.test(chars.selected);
 		
 		// Is the selected word a complete word, separated from other nearby words by a word boundary or a non-"word character"?
-		var completeWord = new RegExp("^[^\\w_]?\\b" + RegExp.escape(chars.selected) + "\\b[^\\w_]?$", "i").test(chars.extended);
+		var completeWord = new RegExp("^([^\\w_]|\\b|)" + RegExp.escape(chars.selected) + "([^\\w_]|\\b|)$", "i").test(chars.extended);
 		
 		// If both conditions are met, the user has selected a single, distinct word
 		return allWordChars && completeWord;

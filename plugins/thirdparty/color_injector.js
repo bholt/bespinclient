@@ -48,7 +48,7 @@ exports.ColorInjector.prototype = {
 			var color = colors[i];
 			
 			// Current color spans the range that our new highlight color will occupy
-			if(newColor.start >= color.start && newColor.end <= color.end) {
+			if(newColor.start >= color.start && newColor.end <= color.end && !color[flagName]) {
 				// Insert a new highlighted syntax color into the line's color array
 				this.injectColor(newColor, row, i, flagName);
 				
@@ -122,11 +122,73 @@ exports.ColorInjector.prototype = {
 	},
 	
 	cleanRow: function(row, disableRedraw) {
-		this.editor.layoutManager.textLines[row].colors = this._cleanColors[row];
+		//this.editor.layoutManager.syntaxManager.attrsChanged(row, row);
+		
+		//var range = { start: { row: row, col: 0 }, end: { row: row, col: 0 } };
+		//this.editor.layoutManager.syntaxManager._recomputeLayoutForRanges(range, range);
+		
+		// Works, but uses a "Web Worker" that gets fired in a separate thread with no way to do a clean callback... :-(
+		//this.editor.layoutManager.syntaxManager.invalidateRow(row);
+		
+		var flagName = this.flagName;
+		
+		//this._log('\trow ', row, ' colors:');
+		
+		var line = this.editor.layoutManager.textLines[row];
+		
+		if(!line) {
+			return;
+		}
+		
+		var colors = line.colors;
+		
+		//this._log('\t\tbefore highlight: ', colors);
+		
+		for(var i = colors.length - 1; i >= 0; i--) {
+			var color = colors[i];
+			
+			if(color[flagName]) {
+				this._restoreColor(colors, i, flagName);
+			}
+		}
+		
+		//this._log('\t\tafter highlight: ', colors);
 		
 		if(!disableRedraw) {
 			this.editor.textView.invalidate();
 		}
+	},
+	
+	_restoreColor: function(colors, index, flagName) {
+		var color = colors[index];
+		
+		// Color is marked for removal; remove it
+		if(color[flagName].remove) {
+			colors.splice(index, 1);
+		}
+		// Reset the current color's original start and end values
+		else {
+			color.start = color[flagName].start;
+			color.end = color[flagName].end;
+		
+			delete color[flagName];
+		}
+	},
+	
+	getColorAt: function(pos) {
+		var line = this.editor.layoutManager.textLines[pos.row];
+		var colors = line.colors;
+		
+		for(var i = 0; i < colors.length; i++) {
+			var color = colors[i];
+			
+			// Current color spans the range (1-character position) we're looking for
+			if(pos.col >= color.start && pos.col + 1 <= color.end && color.start !== color.end) {
+				return color;
+			}
+		}
+		
+		return null;
 	},
 	
 	_log: function() {
