@@ -123,9 +123,6 @@ Context.prototype = {
 
         var pr = this._worker.send('annotate', [ state, lines, runRange ]);
         pr.then(_(this._annotationFinished).bind(this, row, lastRow));
-        pr.then(function() {
-	        this._syntaxManager.updateCompleted();
-	    }.bind(this));
     },
 
     _annotationFinished: function(row, lastRow, result) {
@@ -242,9 +239,6 @@ function SyntaxManager(layoutManager) {
 
     /** Called whenever the syntax (file type) has been changed. */
     this.syntaxChanged = new Event;
-
-    /**  **/
-    this.updateCompleted = new Event;
 
     this._context = null;
     this._invalidRows = null;
