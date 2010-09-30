@@ -7,6 +7,20 @@
 			"ep": "extensionpoint",
 			"name": "highlight_all",
 			"description": "Highlights all occurrences of a word or variable when the user selects it in the editor"
+		},
+		{
+			"ep": "command",
+			"name": "highlightall",
+			"params": [
+				{
+					"name": "enable",
+					"type": "text",
+					"description": "Enable or disable occurrence highlighting",
+					"defaultValue": "true"
+				}
+			],
+			"description": "Highlight all occurrences of selected text in the editor",
+			"pointer": "#toggle"
 		}
 	]
 });
@@ -449,7 +463,20 @@ Object.defineProperties(exports.Highlighter.prototype, {
 // Gets called before the plugin is reloaded.
 exports.cleanup = function() {
 	env.editor.selectionChanged.remove('highlight_all');
-}
+	exports.instance = window.highlighter = null;
+};
 
-// Initialize selection highlighting in the editor
-exports.instance = window.highlighter = new exports.Highlighter(env.editor);
+exports.init = function() {
+	if(!exports.instance) {
+		// Initialize selection highlighting in the editor
+		exports.instance = window.highlighter = new exports.Highlighter(env.editor);
+	}
+};
+
+exports.toggle = function() {
+	exports.init();
+	
+	if(exports.instance) {
+		exports.instance.highlight = !exports.instance.highlight;
+	}
+};

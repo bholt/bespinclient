@@ -1,24 +1,52 @@
 "define metadata";
 ({
-	"description": "Highlights matching pairs of characters",
-	"dependencies": { "standard_syntax": "0.0.0", "jquery": "0.0.0", "color_injector": "0.0.0" },
+	"description": "Highlights matching brackets",
+	"dependencies": { "standard_syntax": "0.0.0", "jquery": "0.0.0", "rangeutils": "0.0.0", "environment": "0.0.0", "events": "0.0.0", "color_injector": "0.0.0" },
 	"provides": [
 		{
 			"ep": "extensionpoint",
-			"name": "match_pairs",
-			"description": "Matches some pairs, mkay?"
+			"name": "match_brackets",
+			"description": "Match some brackets, mkay?"
+		},
+		{
+			"ep": "command",
+			"name": "matchbrackets",
+			"params": [
+				{
+					"name": "enable",
+					"type": "text",
+					"description": "Enable or disable bracket matching",
+					"defaultValue": "true"
+				}
+			],
+			"description": "Highlight matching brackets",
+			"pointer": "#toggle"
+		},
+		{
+			"ep": "setting",
+			"name": "matchBrackets",
+			"description": "Highlight matching opening/closing brackets when selected",
+			"type": "text",
+			"defaultValue": "true",
+			"pointer": "#toggle",
+			"register": "#toggle"
 		}
 	]
 });
 "end";
 
 /*
- * Run this at the Bespin command line:
- * 
- *   {}> plugin reload match_pairs
- *   {}> eval require('match_pairs')
- * 
- */
+ISSUES:
+
+	1.	The "matchbrackets" command doesn't get saved in the
+		command history for some reason.
+
+	2.	The "provides": "setting" object doesn't fully work.
+		The description shows up in the command line, but
+		the pointer is only triggered after this plugin
+		gets loaded (which won't happen until the user
+		enters the "matchbrackets" command in the command line).
+*/
 
 var console = require('bespin:console').console;
 var rangeUtils = require('rangeutils:utils/range');
@@ -27,12 +55,24 @@ var env = require('environment').env;
 var Event = require('events').Event;
 var $ = require('jquery').$;
 
+var catalog = require('bespin:plugins').catalog;
+var settings = require('settings').settings;
+
 var ColorInjector = require('color_injector').ColorInjector;
 
 exports.Matcher = function(editor) {
 	this.editor = editor || env.editor;
-	this.editor.selectionChanged.add('match_pairs', this.selectionChanged.bind(this));
-	this.injector = new ColorInjector(this.editor, 'match_pair');
+	this.editor.selectionChanged.add(this, this.selectionChanged.bind(this));
+	
+	this.injector = new ColorInjector(this.editor, 'match_brackets');
+	
+	// FIXME: this registers the matcher every time it is initialized, but there
+	// doesn't seem to be any way to UN-register it on cleanup, so it ends up geting
+	// registered multiple times if the user enables bracket matching more than once.
+	catalog.registerExtension('settingChange', {
+		match: "match[Pairs|Brackets]",
+		pointer: function() { console.log('settingChange: ', arguments); }.bind(this)
+	});
 }
 
 exports.Matcher.prototype = {
@@ -53,6 +93,11 @@ exports.Matcher.prototype = {
 	
 	// Syntax highlighter tags to ignore
 	_ignoreRegex: /^(string|comment)$/i,
+	
+	cleanup: function() {
+		this.injector.cleanAll();
+		this.editor.selectionChanged.remove(this);
+	},
 	
 	// Event handler that gets called when the user changes the selection in the editor
 	selectionChanged: function(range) {
@@ -326,4 +371,29 @@ exports.Matcher.prototype = {
 	
 };
 
-exports.instance = window.matcher = new exports.Matcher(env.editor);
+exports.init = function() {
+	if(!exports.instance) {
+		exports.instance = window.matcher = new exports.Matcher(env.editor);
+	}
+	exports.instance.selectionChanged(env.editor.selection);
+};
+
+exports.cleanup = function() {
+	if(exports.instance) {
+		exports.instance.cleanup();
+	}
+	exports.instance = window.matcher = null;
+};
+
+exports.toggle = function(valueObj, commandObj) {
+	console.log('match_brackets.exports.toggle(', arguments, ')');
+	
+	// Explicitly enable bracket matching
+	if(/^(true|yes|on|enable|match)$/i.test(valueObj.enable)) {
+		exports.init();
+	}
+	// Explicitly disable bracket matching
+	else if(/^(false|no|off|disable|no[-_]?match)$/i.test(valueObj.enable)) {
+		exports.cleanup();
+	}
+};
