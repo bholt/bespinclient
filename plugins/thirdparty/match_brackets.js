@@ -385,15 +385,15 @@ exports.cleanup = function() {
 	exports.instance = window.matcher = null;
 };
 
-exports.toggle = function(valueObj, commandObj) {
+exports.toggle = function(args, command) {
 	console.log('match_brackets.exports.toggle(', arguments, ')');
 	
 	// Explicitly enable bracket matching
-	if(/^(true|yes|on|enable|match)$/i.test(valueObj.enable)) {
+	if(/^(1|true|yes|on|enable|match)$/i.test(args.enable)) {
 		exports.init();
 	}
 	// Explicitly disable bracket matching
-	else if(/^(false|no|off|disable|no[-_]?match)$/i.test(valueObj.enable)) {
+	else if(/^(0|false|no|off|disable|no[-_]?match)$/i.test(args.enable)) {
 		exports.cleanup();
 	}
 };
