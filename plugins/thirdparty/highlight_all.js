@@ -1,7 +1,7 @@
 "define metadata";
 ({
 	"description": "Highlights all occurrences of a selected word",
-	"dependencies": { "standard_syntax": "0.0.0", "jquery": "0.0.0" },
+	"dependencies": { "standard_syntax": "0.0.0", "jquery": "0.0.0", "color_injector": "0.0.0" },
 	"provides": [
 		{
 			"ep": "extensionpoint",
@@ -44,8 +44,12 @@
 HOW TO USE:
 
 	1.	Copy this plugin to the /bespinclient/plugins/thirdparty directory
+	
 	2.	Run this command in the Bespin command line:
-			{}> highlightall [true|false]
+			{}> highlightall [true|false|on|off]
+			
+	3.	Toggle case sensitivity with this command:
+			{}> highlightall.caseSensitive [true|false|on|off]
 
 NOTES:
 
@@ -60,7 +64,7 @@ NOTES:
 
 ISSUES:
 
-	1.	The algorithm used by _highlightAll() and _highlightRange() is slow when editing large files (> 1,000 lines) with many occurrences.
+	1.	The algorithm used by highlightVisible() and _highlightRange() is slow when editing large files (> 1,000 lines) with many occurrences.
 		It takes approximately 0.5 sec to highlight all occurrences of "this" in a typical JavaScript file with around 5,500 lines of code.
 		It may need to be re-worked slightly to improve its speed and efficiency.
 	2.	Double-clicking sometimes highlights all occurrences and then immediately removes the highlights.
@@ -80,6 +84,11 @@ var util = require('bespin:util/util');
 var env = require('environment').env;
 var $ = require('jquery').$;
 
+var catalog = require('bespin:plugins').catalog;
+var settings = require('settings').settings;
+
+var ColorInjector = require('color_injector').ColorInjector;
+
 // Utility function to escape special regex "metacharacters" in a string.
 // Useful for sanitizing user input so it can be used in regular expressions.
 RegExp.escape = function(text) {
@@ -95,8 +104,26 @@ exports.Highlighter = function(editor, caseSensitive) {
 	this.editor = editor || env.editor;
 	this.caseSensitive = caseSensitive;
 	
+	/** Arrays and objects need to be initialized HERE (in the constructor), NOT in the prototype. **/
+	/** Otherwise, multiple instances of this class will all have variables that reference the same object! **/
+	// Collection of all occurrences of a selected word or variable name *that have not been highlighted in the editor yet*.
+	// Indexed by row (i.e., the row number is the array index): [ 4: [ occurrence0, occurrence1, occurrence2 ], 12: [ occurence3 ] ]
+	this._occurrences = [];
+	
+	// Create a new Color Injector to do the highlighting
+	this.injector = new ColorInjector(this.editor, 'highlight_all');
+	
 	// Bind event handler for text selection
 	this.editor.selectionChanged.add('highlight_all', this.selectionChanged.bind(this));
+	
+	// Bind event handler for scrolling (includes mouse wheel, page up/page down, etc.)
+	this.editor.verticalScroller.valueChanged.add('highlight_all', this.highlightVisible.bind(this));
+	this.editor.horizontalScroller.valueChanged.add('highlight_all', this.highlightVisible.bind(this));
+	
+	// Register event handler for window resize
+	catalog.registerExtension('dimensionsChanged', {
+		pointer: this.highlightVisible.bind(this)
+	});
 	
 	this._log('highlight_all plugin initialized!');
 };
@@ -114,21 +141,15 @@ exports.Highlighter.prototype = {
 	// Enable/disable verbose console output
 	DEBUG: false,
 	
-	// Enable/disable profiling in Firebug (to see how long each function takes to do its thing)
+	// Enable/disable profiling in Firebug (to see how long each function takes to execute)
 	PROFILE: false,
 	
-	// Whether highlighting is turned on (i.e., all occurrences are being physically highlighted at this exact moment)
+	// Whether highlighting is enabled
 	_enabled: false,
 	
 	// Whether occurrence matching is case sensitive or not
 	_caseSensitive: undefined,
 	_caseSensitiveDefault: true,
-	
-	// Collection of all occurrences of a selected word or variable
-	_occurrences: [],
-	
-	// List of all lines where occurrences appear.  Used to optimize _removeHighlight() so that it only searches rows where occurrences appear.
-	_rows: [],
 	
 	/*
 	 * Event handler that will be fired whenever the selection changes inside the editor.
@@ -145,17 +166,13 @@ exports.Highlighter.prototype = {
 		}
 		
 		// Remove all highlights
-		this._removeHighlight();
-		
-		// Reset occurrences and rows array
-		this._occurrences = [];
-		this._rows = [];
+		this.removeHighlight();
 		
 		// Determine what to do with the user's selection
 		this._handleSelectionRange(newRange);
 		
 		// Highlight all occurrences
-		this._highlightAll();
+		this.highlightVisible();
 		
 		if(this.PROFILE) {
 			console.profileEnd();
@@ -211,6 +228,7 @@ exports.Highlighter.prototype = {
 		return allWordChars && completeWord;
 	},
 	
+	// Finds and stores all occurrences of the selected text
 	_findAllOccurrences: function(selectedRange, selectedChars) {
 		this._log('\tNon whitespace range: "', selectedChars, '" ', selectedRange);
 		
@@ -249,171 +267,91 @@ exports.Highlighter.prototype = {
 		}
 	},
 	
+	// Make the search controller do all the hard work :-D
 	_getNextOccurrence: function(curOccurrence) {
 		return this.editor.searchController.findNext(/* startPos = */ curOccurrence.end, /* allowFromStart = */ false);
 	},
 	
 	_handleOccurrence: function(curOccurrence) {
-		var occurrenceText = this.editor.getText(curOccurrence);
 		var row = curOccurrence.start.row;
 		
-		// Add the current row to the list of rows if it is not already present
-		if(this._rows.indexOf(row) === -1) {
-			this._rows.push(row);
-		}
+		// Make sure an array is initialized for the current row
+		this._occurrences[row] = this._occurrences[row] || [];
 		
-		// Add occurrence to the list
-		this._occurrences.push({
-			range: curOccurrence,
-			text: occurrenceText
-		});
+		// Add the occurrence to the list of occurrences in that row
+		this._occurrences[row].push(curOccurrence);
 		
-		this._logOccurrence(curOccurrence, occurrenceText);
+		// Log it
+		this._logOccurrence(curOccurrence);
 	},
 	
-	_logOccurrence: function(curOccurrence, occurrenceText) {
+	_logOccurrence: function(curOccurrence) {
 		this._log('\t\tSearch result ', this._i++, ': ' + 
 				  '(', curOccurrence.start.row, ', ', curOccurrence.start.col, ') to ' +
-				  '(', curOccurrence.end.row, ', ', curOccurrence.end.col, '): ' +
-				  '"', occurrenceText, '"');
+				  '(', curOccurrence.end.row, ', ', curOccurrence.end.col, ')'); //': ' +
+			//	  '"', occurrenceText, '"');
+	},
+	
+	_getVisibleRows: function() {
+		// Get the clipping frame (the pixel coordinates of the visible portion of the editor)
+		var clippingFrame = this.editor.textView.clippingFrame;
+		
+		// Get the text range of the clipping frame
+		var clippingRange = this.editor.layoutManager.characterRangeForBoundingRect(clippingFrame);
+		
+		return {
+			start: clippingRange.start.row,
+			end: clippingRange.end.row
+		};
 	},
 	
 	/*
-	 * Highlights all occurrences of the selected text
+	 * Highlights all visible occurrences of the selected text in the editor
 	 */
-	_highlightAll: function() {
+	highlightVisible: function() {
 		if(this._occurrences.length === 0) {
 			return;
 		}
 		
 		this._log(' ');
-		this._log('_highlightAll():');
+		this._log('highlightVisible():');
 		this._log('\t._occurrences: ', this._occurrences);
 		
-		for(var i = 0; i < this._occurrences.length; i++) {
-			this._highlightRange(this._occurrences[i].range);
-		}
+		var visibleRows = this._getVisibleRows();
 		
-		// Force the canvas to redraw itself
-		this.editor.textView.invalidate();
+		// Loop through each row of occurrences
+		for(var i = visibleRows.start; i <= visibleRows.end && i < this._occurrences.length; i++) {
+			var curRow = this._occurrences[i];
+			
+			// Make sure curRow is defined
+			if(curRow) {
+				// Loop backwards through each occurrence in the row
+				for(var j = curRow.length - 1; j >= 0; j--) {
+					// Remove the last occurrence from the array and highlight it
+					this._highlightRange(curRow.pop());
+				}
+			}
+		}
 	},
 	
 	// Inserts a highlight style for the given text range into the line's syntax styles
 	_highlightRange: function(range) {
 		this._log('\trow ', range.start.row, ' colors:');
 		
-		var row = range.start.row;
-		var line = this.editor.layoutManager.textLines[row];
-		var colors = line.colors;
-		
-		var highlightColor = {
+		this.injector.inject(range.start.row, {
 			start: range.start.col,
 			end: range.end.col,
 			state: [],
-			tag: 'occurrence',
-			_highlight: {
-				remove: true
-			}
-		};
-		
-		this._log('\t\tbefore highlight: ', colors);
-		
-		for(var i = 0; i < colors.length; i++) {
-			var color = colors[i];
-			
-			// Current color spans the range that our new highlight color will occupy
-			if(highlightColor.start >= color.start && highlightColor.end <= color.end) {
-				// Insert a new highlighted syntax color into the line's color array
-				this._insertColor(colors, i, highlightColor);
-				
-				// We're done!
-				break;
-			}
-		}
-		
-		this._log('\t\tafter highlight: ', colors);
+			tag: 'occurrence'
+		});
 	},
 	
-	_insertColor: function(colors, index, highlightColor) {
-		// Reference to existing color object
-		var leftColor = colors[index];
+	removeHighlight: function() {
+		// Reset occurrences object
+		this._occurrences = [];
 		
-		leftColor._highlight = leftColor._highlight || {};
-		
-		// Make a deep clone of leftColor
-		var rightColor = $.extend(true, {}, leftColor);
-		
-		// Mark rightColor for removal during cleanup
-		rightColor._highlight.remove = true;
-		
-		// Save original start/end values
-		leftColor._highlight.start = leftColor.start;
-		leftColor._highlight.end = leftColor.end;
-		
-		// Set new end value for leftColor
-		leftColor.end = highlightColor.start;
-		
-		// Set new start value for rightColor
-		rightColor.start = highlightColor.end;
-		
-		// Clone leftColor's "state" property
-		highlightColor.state = $.extend(true, [], leftColor.state);
-		
-		// Insert highlightColor and rightColor into the array of colors -after- leftColor
-		colors.splice(index + 1, 0, highlightColor, rightColor);
-	},
-	
-	_removeHighlight: function() {
-		if(this._occurrences.length === 0) {
-			return;
-		}
-		
-		this._log(' ');
-		this._log('_removeHighlight():');
-		this._log('\t._occurrences: ', this._occurrences);
-		
-		// Loop through each row of occurrences and remove highlighting
-		this._rows.forEach(this._removeRowHighlight.bind(this));
-		
-		// Force the canvas to redraw itself
-		this.editor.textView.invalidate();
-	},
-	
-	_removeRowHighlight: function(row) {
-		this._log('\trow ', row, ' colors:');
-		
-		var line = this.editor.layoutManager.textLines[row];
-		var colors = line.colors;
-		
-		this._log('\t\tbefore removing highlight: ', colors);
-		
-		// Loop backwards to prevent an infinite loop
-		for(var i = colors.length - 1; i >= 0; i--) {
-			var color = colors[i];
-			
-			// Current color was inserted dynamically by this plugin
-			if(color._highlight) {
-				this._restoreColor(colors, i);
-			}
-		}
-	
-		this._log('\t\tafter removing highlight: ', colors);
-	},
-	
-	_restoreColor: function(colors, index) {
-		var color = colors[index];
-		
-		// Color is marked for removal; remove it
-		if(color._highlight.remove) {
-			colors.splice(index, 1);
-		}
-		// Reset the current color's original start and end values
-		else {
-			color.start = color._highlight.start;
-			color.end = color._highlight.end;
-		
-			delete color._highlight;
-		}
+		// Clean up the highlighting
+		this.injector.cleanAll();
 	},
 	
 	_log: function() {
@@ -447,12 +385,12 @@ Object.defineProperties(exports.Highlighter.prototype, {
 			// Turn on highlighting
 			if(enable) {
 				this._enabled = true;
-				this._highlightAll();
+				this.highlightVisible();
 			}
 			// Turn off highlighting
 			else {
 				this._enabled = false;
-				this._removeHighlight();
+				this.removeHighlight();
 			}
 		},
 

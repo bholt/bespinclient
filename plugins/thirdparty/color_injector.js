@@ -21,15 +21,15 @@ var $ = require('jquery').$;
 exports.ColorInjector = function(editor, flagName) {
 	this.editor = editor || env.editor;
 	this.flagName = flagName;
+	
+	/** Arrays and objects need to be initialized HERE (in the constructor), NOT in the prototype. **/
+	/** Otherwise, multiple instances of this class will all have variables that reference the same object! **/
+	this._rows = [];
 };
 
 exports.ColorInjector.prototype = {
 	
 	DEBUG: false,
-	
-	_rows: [],
-	
-	_cleanColors: {},
 	
 	inject: function(row, newColor, flagName) {
 		flagName = flagName || this.flagName;
@@ -48,7 +48,7 @@ exports.ColorInjector.prototype = {
 			var color = colors[i];
 			
 			// Current color spans the range that our new highlight color will occupy
-			if(newColor.start >= color.start && newColor.end <= color.end && !color[flagName]) {
+			if(newColor.start >= color.start && newColor.end <= color.end) {
 				// Insert a new highlighted syntax color into the line's color array
 				this.injectColor(newColor, row, i, flagName);
 				
@@ -66,14 +66,6 @@ exports.ColorInjector.prototype = {
 		newColor = $.extend(true, {}, newColor);
 		
 		var line = this.editor.layoutManager.textLines[row];
-		
-		if(!line.colors._injected) {
-			this._cleanColors[row] = line.colors;
-			
-			line.colors = $.extend(true, [], line.colors);
-			line.colors._injected = true;
-		}
-		
 		var colors = line.colors;
 		
 		// Reference to existing color object
@@ -115,21 +107,18 @@ exports.ColorInjector.prototype = {
 	
 	cleanAll: function() {
 		for(var i = this._rows.length - 1; i >= 0; i--) {
+			// Clean 'er up
 			this.cleanRow(this._rows[i], true);
+			
+			// Remove current row from array
+			this._rows.splice(i, 1);
 		}
 		
+		// Redraw canvas
 		this.editor.textView.invalidate();
 	},
 	
 	cleanRow: function(row, disableRedraw) {
-		//this.editor.layoutManager.syntaxManager.attrsChanged(row, row);
-		
-		//var range = { start: { row: row, col: 0 }, end: { row: row, col: 0 } };
-		//this.editor.layoutManager.syntaxManager._recomputeLayoutForRanges(range, range);
-		
-		// Works, but uses a "Web Worker" that gets fired in a separate thread with no way to do a clean callback... :-(
-		//this.editor.layoutManager.syntaxManager.invalidateRow(row);
-		
 		var flagName = this.flagName;
 		
 		//this._log('\trow ', row, ' colors:');
