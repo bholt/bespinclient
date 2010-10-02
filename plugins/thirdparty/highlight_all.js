@@ -45,7 +45,7 @@ HOW TO USE:
 
 	1.	Copy this plugin to the /bespinclient/plugins/thirdparty directory
 	
-	2.	Run this command in the Bespin command line:
+	2.	Enable or disable this plugin using the following command in the Bespin command line:
 			{}> highlightall [true|false|on|off]
 			
 	3.	Toggle case sensitivity with this command:
@@ -64,9 +64,8 @@ NOTES:
 
 ISSUES:
 
-	1.	The algorithm used by highlightVisible() and _highlightRange() is slow when editing large files (> 1,000 lines) with many occurrences.
-		It takes approximately 0.5 sec to highlight all occurrences of "this" in a typical JavaScript file with around 5,500 lines of code.
-		It may need to be re-worked slightly to improve its speed and efficiency.
+	1.	Scrolling extremely quickly through a large file can create a race condition that results in occurrences not being highlighted
+		until the user scrolls up or down a second time.
 	2.	Double-clicking sometimes highlights all occurrences and then immediately removes the highlights.
 		This strange double-click behavior is part of the Bespin core, not highlight_all, but it would be good to fix the bug anyway.
 		It likely has something to do with the timing of firing the editor's "click" and "double-click" event handlers.

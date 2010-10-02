@@ -357,12 +357,6 @@ exports.Matcher.prototype = {
 		this.injector.inject(selectedRow, selectedColor);
 	},
 	
-	// Alias
-	_displacePosition: function() {
-		var textStorage = this.editor.layoutManager.textStorage;
-		return textStorage.displacePosition.apply(textStorage, arguments);
-	},
-	
 	_log: function() {
 		if(this.DEBUG) {
 			console.log.apply(this, arguments);

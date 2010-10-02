@@ -12,6 +12,22 @@
 });
 "end";
 
+/*
+ISSUES:
+
+	1.	Highlighting two or more ranges that appear in a single row and color object (e.g., a "comment" color object) fails;
+		the original color object does not get properly restored during cleanup.  Instead, the second range and everything after it
+		get completely removed and the text becomes plain white.
+		
+		This algorithm should be re-designed and re-implemented.
+		
+
+UNIT TESTING (TODO):
+
+	Complete unit testing of this plugin's major components.
+
+*/
+
 var console = require('bespin:console').console;
 var rangeUtils = require('rangeutils:utils/range');
 var util = require('bespin:util/util');
@@ -148,6 +164,9 @@ exports.ColorInjector.prototype = {
 		}
 	},
 	
+	/*
+	 * TODO: FIXME!  This algorithm (and/or the insertion algorithm) breaks when highlighting multiple occurrences on the same line.
+	 */
 	_restoreColor: function(colors, index, flagName) {
 		var color = colors[index];
 		
