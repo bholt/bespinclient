@@ -450,16 +450,20 @@
                 "builtin":          "#307BAD",
                 "module":           "#BA4946",
                 "specialmodule":    "#C741BB",
-                "occurrence":       "#000000"
+                "occurrence":       "#000000",
+                "bracket_selected": "#FFFFFF",
+                "bracket_matching": "#FFFFFF"
             }
         },
         {
             "ep": "themevariable",
             "name": "highlighterBG",
             "defaultValue": {
-                "addition":   "#008000",
-                "deletion":   "#800000",
-				"occurrence": "#DBDB00"
+                "addition":         "#008000",
+                "deletion":         "#800000",
+				"occurrence":       "#DBDB00",
+                "bracket_selected": "#d83434",
+                "bracket_matching": "#ac4848"
             }
         },
         {

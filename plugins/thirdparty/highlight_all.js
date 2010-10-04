@@ -116,12 +116,12 @@ exports.Highlighter = function(editor, caseSensitive) {
 	this.editor.selectionChanged.add('highlight_all', this.selectionChanged.bind(this));
 	
 	// Bind event handler for scrolling (includes mouse wheel, page up/page down, etc.)
-	this.editor.verticalScroller.valueChanged.add('highlight_all', this.highlightVisible.bind(this));
-	this.editor.horizontalScroller.valueChanged.add('highlight_all', this.highlightVisible.bind(this));
+	this.editor.verticalScroller.valueChanged.add('highlight_all', this.editorChanged.bind(this));
+	this.editor.horizontalScroller.valueChanged.add('highlight_all', this.editorChanged.bind(this));
 	
 	// Register event handler for window resize
 	catalog.registerExtension('dimensionsChanged', {
-		pointer: this.highlightVisible.bind(this)
+		pointer: this.editorChanged.bind(this)
 	});
 	
 	this._log('highlight_all plugin initialized!');
@@ -149,6 +149,9 @@ exports.Highlighter.prototype = {
 	// Whether occurrence matching is case sensitive or not
 	_caseSensitive: undefined,
 	_caseSensitiveDefault: true,
+	
+	// Timeout used for window resizing and editor scrolling
+	_timeout: null,
 	
 	/*
 	 * Event handler that will be fired whenever the selection changes inside the editor.
@@ -245,24 +248,16 @@ exports.Highlighter.prototype = {
 		
 		// Initial dummy values for editor.searchController.findNext() and rangeUtils.equal()
 		var curOccurrence = { end: { col: 0, row: 0 } };
-		var firstOccurrence;
 		
 		// Loop through every search result for the text in the editor
 		while(curOccurrence = this._getNextOccurrence(curOccurrence)) {
-			// Search wrapped around to the first occurrence, which means we've processed all occurrences.
-			if(firstOccurrence && curOccurrence === firstOccurrence) {
-				break;
-			}
-			// Current occurrence is the user's selection; ignore this occurrence.
-			else if(rangeUtils.equal(curOccurrence, selectedRange)) {
+			// Skip highlighting if the current occurrence is the user's selection
+			if(rangeUtils.equal(curOccurrence, selectedRange)) {
 				continue;
 			}
 			
-			// Check the current occurrence and add it to the list of occurrences, if necessary
+			// Add the current occurrence to the list of occurrences
 			this._handleOccurrence(curOccurrence);
-			
-			// Remember the first occurrence
-			firstOccurrence = firstOccurrence || curOccurrence;
 		}
 	},
 	
@@ -285,23 +280,34 @@ exports.Highlighter.prototype = {
 	},
 	
 	_logOccurrence: function(curOccurrence) {
-		this._log('\t\tSearch result ', this._i++, ': ' + 
-				  '(', curOccurrence.start.row, ', ', curOccurrence.start.col, ') to ' +
-				  '(', curOccurrence.end.row, ', ', curOccurrence.end.col, ')'); //': ' +
-			//	  '"', occurrenceText, '"');
+		if(this.DEBUG) {
+			this._log('\t\tSearch result ', this._i++, ': ' + 
+				  	'(', curOccurrence.start.row, ', ', curOccurrence.start.col, ') to ' +
+				  	'(', curOccurrence.end.row, ', ', curOccurrence.end.col, ')');
+		}
 	},
 	
 	_getVisibleRows: function() {
 		// Get the clipping frame (the pixel coordinates of the visible portion of the editor)
 		var clippingFrame = this.editor.textView.clippingFrame;
 		
-		// Get the text range of the clipping frame
+		// Get the text range that resides in the clipping frame
 		var clippingRange = this.editor.layoutManager.characterRangeForBoundingRect(clippingFrame);
 		
 		return {
 			start: clippingRange.start.row,
 			end: clippingRange.end.row
 		};
+	},
+	
+	editorChanged: function() {
+		this.highlightVisible();
+		
+		// Clear existing timeout
+		clearTimeout(this._timeout);
+		
+		// Create a new timeout, set to fire in 500 ms (1/2 sec)
+		this._timeout = setTimeout(function() { console.log('Timeout fired'); this.highlightVisible(); }.bind(this), 1000);
 	},
 	
 	/*
@@ -322,13 +328,15 @@ exports.Highlighter.prototype = {
 		for(var i = visibleRows.start; i <= visibleRows.end && i < this._occurrences.length; i++) {
 			var curRow = this._occurrences[i];
 			
-			// Make sure curRow is defined
-			if(curRow) {
-				// Loop backwards through each occurrence in the row
-				for(var j = curRow.length - 1; j >= 0; j--) {
-					// Remove the last occurrence from the array and highlight it
-					this._highlightRange(curRow.pop());
-				}
+			// Skip undefined rows
+			if(!curRow) {
+				continue;
+			}
+			
+			// Loop backwards through each occurrence in the row
+			for(var j = curRow.length - 1; j >= 0; j--) {
+				// Remove the last occurrence from the array and highlight it
+				this._highlightRange(curRow.pop());
 			}
 		}
 	},

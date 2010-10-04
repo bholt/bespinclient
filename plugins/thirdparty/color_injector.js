@@ -79,8 +79,6 @@ exports.ColorInjector.prototype = {
 	injectColor: function(newColor, row, colorIndex, flagName) {
 		flagName = flagName || this.flagName;
 		
-		//newColor = $.extend(true, {}, newColor);
-		
 		var line = this.editor.layoutManager.textLines[row];
 		var colors = line.colors;
 		
@@ -89,9 +87,6 @@ exports.ColorInjector.prototype = {
 	
 		leftColor[flagName] = leftColor[flagName] || {};
 		
-		// Clear removal flag
-		//leftColor[flagName].remove = false;
-	
 		// Make a deep clone of leftColor
 		var rightColor = $.extend(true, {}, leftColor);
 	
