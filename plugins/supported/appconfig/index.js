@@ -36,6 +36,7 @@
  * ***** END LICENSE BLOCK ***** */
 
 var $ = require('jquery').$;
+var _ = require('underscore')._;
 var settings = require('settings').settings;
 var group = require("bespin:promise").group;
 var Promise = require("bespin:promise").Promise;
@@ -335,50 +336,59 @@ var generateGUI = function(catalog, config, pr) {
     // Add the 'bespin' class to the element in case it doesn't have this already.
     util.addClass(element, 'bespin');
     element.appendChild(container);
-    
-    // this shouldn't be necessary, but it looks like Firefox has an issue
-    // with the box-ordinal-group CSS property
-    ['north', 'west', 'center', 'east', 'south'].forEach(function(place) {
-        var descriptor = config.gui[place];
-        if (!descriptor) {
-            return;
-        }
 
-        var component = catalog.getObject(descriptor.component);
-        if (!component) {
-            error = 'Cannot find object ' + descriptor.component +
-                            ' to attach to the Bespin UI';
-            console.error(error);
-            pr.reject(error);
-            return;
-        }
-
-        element = component.element;
-        if (!element) {
-            error = 'Component ' + descriptor.component + ' does not have' +
-                          ' an "element" attribute to attach to the Bespin UI';
-            console.error(error);
-            pr.reject(error);
-            return;
-        }
-
-        $(element).addClass(place);
-
-        if (place == 'west' || place == 'east' || place == 'center') {
-            if (!centerAdded) {
-                container.appendChild(centerContainer);
-                centerAdded = true;
+    try {
+        // this shouldn't be necessary, but it looks like Firefox has an issue
+        // with the box-ordinal-group CSS property
+        ['north', 'west', 'center', 'east', 'south'].forEach(function(place) {
+            var descriptor = config.gui[place];
+            if (!descriptor) {
+                return;
             }
-            centerContainer.appendChild(element);
-        } else {
-            container.appendChild(element);
-        }
 
-        // Call the elementAppended event if there is one.
-        if (component.elementAppended) {
-            component.elementAppended();
-        }
-    });
+            var component = catalog.getObject(descriptor.component);
+            if (!component) {
+                throw 'Cannot find object ' + descriptor.component +
+                                ' to attach to the Bespin UI';
+            }
 
-    pr.resolve();
+            element = component.element;
+            if (!element) {
+                throw 'Component ' + descriptor.component + ' does not ' +
+                            'have an "element" attribute to attach to the ' +
+                            'Bespin UI';
+            }
+
+            $(element).addClass(place);
+
+            if (place == 'west' || place == 'east' || place == 'center') {
+                if (!centerAdded) {
+                    container.appendChild(centerContainer);
+                    centerAdded = true;
+                }
+                centerContainer.appendChild(element);
+            } else {
+                container.appendChild(element);
+            }
+        });
+
+        // Call the "elementAppended" callbacks.
+        ['north', 'west', 'east', 'south', 'center'].forEach(function(place) {
+            var descriptor = config.gui[place];
+            if (!descriptor) {
+                return;
+            }
+
+            var component = catalog.getObject(descriptor.component);
+            if (component.elementAppended != null) {
+                component.elementAppended();
+            }
+        });
+
+        pr.resolve();
+    } catch (e) {
+        console.error(e);
+        pr.reject(e);
+    }
+
 };
