@@ -41,6 +41,8 @@ var env = require('environment').env;
 
 var Promise = require('bespin:promise').Promise;
 
+var $ = require('jquery').$;
+
 function Logo() {
     var li = document.createElement('li');
     var img = document.createElement('img');
@@ -50,25 +52,47 @@ function Logo() {
     this.element = li;
 }
 
-function OpenFileIndicator() {
-    var li = document.createElement('li');
-    li.innerHTML = "SampleProject &mdash; readme.txt";
-    this.element = li;
-}
+exports.OpenFileIndicator = function OpenFileIndicator() {
+    this.element = document.createElement('li');
+	
+    this.init.call(this);
+};
+
+exports.OpenFileIndicator.prototype = {
+	init: function() {
+		if(env.editor) {
+			//doesn't get called on file open
+			env.editor.willChangeBuffer.add(this.updateFile.bind(this));
+		} else {
+			setTimeout(this.init.bind(this), 100);
+		}
+	},
+	updateFile: function(newBuffer) {
+		//alert('will change buffer called ' + newBuffer._file.path);
+		//range = range || env.editor.selection;
+		//if (newBuffer._file) {
+			this.element.innerHTML = newBuffer._file.path;
+		//} else {
+			//this.element.innerHTML = '**newfile**';
+		//}
+	}
+};
+
 
 exports.Save = function Save() {
     this.element = document.createElement('li');
-	this.element.innerHTML = 'Save';
-	//this.init();
+	this.element.innerHTML = "<a id='save_button' class='toolbar_button'>Save</a>"
+	this.init.call(this);
 };
-/*exports.Save.prototype = {
+exports.Save.prototype = {
 	init: function() {
-		this.element.addEventListener('click', this._save);
+		$(this.element).bind('click',this._save.bind(this));
+		//this.element.addEventListener('click', this._save.bind(this));
 	},
 	_save: function() {
-		
+		alert('save clicked');
 	}
-}*/
+}
 
 
 exports.PositionIndicator = function PositionIndicator() {
@@ -91,4 +115,3 @@ exports.PositionIndicator.prototype = {
 };
 
 exports.Logo = Logo;
-exports.OpenFileIndicator = OpenFileIndicator;

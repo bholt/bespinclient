@@ -57,6 +57,7 @@ var UndoManager = require('undomanager').UndoManager;
  * without a file passed.
  */
 exports.Buffer = function(file, initialContent) {
+
     this._file = file;
     this._model = new TextStorage(initialContent);
     this._layoutManager = new LayoutManager({

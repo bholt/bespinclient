@@ -194,6 +194,8 @@ exports.openCommand = function(args, request) {
         return;
     }
 
+    alert('open called');
+
     var files = env.files;
     var editor = env.editor;
     var path = exports.getCompletePath(args.path);
