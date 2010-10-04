@@ -7,6 +7,34 @@
 			"ep": "extensionpoint",
 			"name": "highlight_all",
 			"description": "Highlights all occurrences of a word or variable when the user selects it in the editor"
+		},
+		{
+			"ep": "command",
+			"name": "highlightall",
+			"params": [
+				{
+					"name": "enable",
+					"type": "text",
+					"description": "Enable or disable occurrence highlighting",
+					"defaultValue": "true"
+				}
+			],
+			"description": "Highlight all occurrences of selected text in the editor",
+			"pointer": "#setEnabled"
+		},
+		{
+			"ep": "command",
+			"name": "highlightall.caseSensitive",
+			"params": [
+				{
+					"name": "enable",
+					"type": "text",
+					"description": "Enable or disable case-sensitivity",
+					"defaultValue": "true"
+				}
+			],
+			"description": "Force occurrence matching to be case-sensitive or case-insensitive",
+			"pointer": "#setCaseSensitive"
 		}
 	]
 });
@@ -16,18 +44,8 @@
 HOW TO USE:
 
 	1.	Copy this plugin to the /bespinclient/plugins/thirdparty directory
-
-	2.	Run these commands in the Bespin "shell" (terminal):
-			{}> plugin reload highlight_all
-			{}> eval require("highlight_all")
-	
-		- OR -
-	
-	2.a	Run this command in the Bespin "shell" (terminal):
-			{}> plugin reload highlight_all
-	
-	2.b	Run this command in the Firebug console:
-			>>> bespin.tiki.sandbox.require('highlight_all');
+	2.	Run this command in the Bespin command line:
+			{}> highlightall [true|false]
 
 NOTES:
 
@@ -100,7 +118,7 @@ exports.Highlighter.prototype = {
 	PROFILE: false,
 	
 	// Whether highlighting is turned on (i.e., all occurrences are being physically highlighted at this exact moment)
-	_highlight: false,
+	_enabled: false,
 	
 	// Whether occurrence matching is case sensitive or not
 	_caseSensitive: undefined,
@@ -121,14 +139,13 @@ exports.Highlighter.prototype = {
 			console.profile();
 		}
 		
-		// Invalid argument; abandon ship!
-		if(!rangeUtils.isRange(newRange)) {
+		// Disabled or invalid argument; abandon ship!
+		if(!this.enabled || !rangeUtils.isRange(newRange)) {
 			return;
 		}
 		
 		// Remove all highlights
-		// A setter function is called whenever this value is set
-		this.highlight = false;
+		this._removeHighlight();
 		
 		// Reset occurrences and rows array
 		this._occurrences = [];
@@ -137,11 +154,8 @@ exports.Highlighter.prototype = {
 		// Determine what to do with the user's selection
 		this._handleSelectionRange(newRange);
 		
-		// Highlight all occurrences if there is at least one occurrence
-		if(this._occurrences.length > 0) {
-			// A setter function is called whenever this value is set
-			this.highlight = true;
-		}
+		// Highlight all occurrences
+		this._highlightAll();
 		
 		if(this.PROFILE) {
 			console.profileEnd();
@@ -191,7 +205,7 @@ exports.Highlighter.prototype = {
 		var allWordChars = /^[\w_]+$/.test(chars.selected);
 		
 		// Is the selected word a complete word, separated from other nearby words by a word boundary or a non-"word character"?
-		var completeWord = new RegExp("^[^\\w_]?\\b" + RegExp.escape(chars.selected) + "\\b[^\\w_]?$", "i").test(chars.extended);
+		var completeWord = new RegExp("^([^\\w_]|\\b|)" + RegExp.escape(chars.selected) + "([^\\w_]|\\b|)$", "i").test(chars.extended);
 		
 		// If both conditions are met, the user has selected a single, distinct word
 		return allWordChars && completeWord;
@@ -279,6 +293,9 @@ exports.Highlighter.prototype = {
 		for(var i = 0; i < this._occurrences.length; i++) {
 			this._highlightRange(this._occurrences[i].range);
 		}
+		
+		// Force the canvas to redraw itself
+		this.editor.textView.invalidate();
 	},
 	
 	// Inserts a highlight style for the given text range into the line's syntax styles
@@ -357,6 +374,9 @@ exports.Highlighter.prototype = {
 		
 		// Loop through each row of occurrences and remove highlighting
 		this._rows.forEach(this._removeRowHighlight.bind(this));
+		
+		// Force the canvas to redraw itself
+		this.editor.textView.invalidate();
 	},
 	
 	_removeRowHighlight: function(row) {
@@ -422,25 +442,22 @@ Object.defineProperties(exports.Highlighter.prototype, {
 		}
 	},
 	
-	highlight: {
+	enabled: {
 		set: function(enable) {
 			// Turn on highlighting
 			if(enable) {
-				this._highlight = true;
+				this._enabled = true;
 				this._highlightAll();
 			}
 			// Turn off highlighting
 			else {
-				this._highlight = false;
+				this._enabled = false;
 				this._removeHighlight();
 			}
-			
-			// Force the canvas to redraw itself
-			this.editor.textView.invalidate();
 		},
 
 		get: function() {
-			return this._highlight;
+			return this._enabled;
 		}
 	}
 });
@@ -449,7 +466,43 @@ Object.defineProperties(exports.Highlighter.prototype, {
 // Gets called before the plugin is reloaded.
 exports.cleanup = function() {
 	env.editor.selectionChanged.remove('highlight_all');
-}
+	exports.instance = window.highlighter = null;
+};
 
-// Initialize selection highlighting in the editor
-exports.instance = window.highlighter = new exports.Highlighter(env.editor);
+exports.init = function() {
+	if(!exports.instance) {
+		// Initialize selection highlighting in the editor
+		exports.instance = window.highlighter = new exports.Highlighter(env.editor);
+	}
+};
+
+exports.setEnabled = function(args, command) {
+	console.log('highlight_all.exports.setEnabled(', arguments, ')');
+	
+	exports.init();
+	
+	// Explicitly enable occurrence highlighting
+	if(/^(1|true|yes|on|enable|highlight)$/i.test(args.enable)) {
+		exports.instance.enabled = true;
+		exports.instance.selectionChanged(env.editor.selection);
+	}
+	// Explicitly disable occurrence highlighting
+	else if(/^(0|false|no|off|disable|no[-_]?highlight)$/i.test(args.enable)) {
+		exports.instance.enabled = false;
+	}
+};
+
+exports.setCaseSensitive = function(args, command) {
+	console.log('highlight_all.exports.setCaseSensitive(', arguments, ')');
+	
+	exports.init();
+	
+	// Explicitly enable occurrence highlighting
+	if(/^(1|true|yes|on|enable|highlight)$/i.test(args.enable)) {
+		exports.instance.caseSensitive = true;
+	}
+	// Explicitly disable occurrence highlighting
+	else if(/^(0|false|no|off|disable|no[-_]?highlight)$/i.test(args.enable)) {
+		exports.instance.caseSensitive = false;
+	}
+};

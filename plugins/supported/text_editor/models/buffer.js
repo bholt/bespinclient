@@ -101,19 +101,6 @@ exports.Buffer = function(file, initialContent) {
         end: { row: 0, col: 0 }
     };
 
-	/*
-	var tmpSelection = selection || {
-        start: { row: 0, col: 0 },
-        end: { row: 0, col: 0 }
-    };
-
-	if(env.editor) {
-		env.editor.textView.setSelection(tmpSelection);
-	} else {
-		this._selectedRange = tmpSelection;
-	}
-	*/
-
     this._scrollOffset = scrollOffset || { x: 0, y: 0 };
 };
 
@@ -218,8 +205,8 @@ Object.defineProperties(exports.Buffer.prototype, {
 			this._selectedRange = range;
 			
 			if(env.editor) {
+				// Notify event listeners that the selection has changed
 				env.editor.selectionChanged(range);
-				//env.editor.textView.setSelection(range);
 			}
 		}
 	},

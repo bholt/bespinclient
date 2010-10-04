@@ -33,3 +33,8 @@ frameworks/tiki
 /pavement.py
 /bespin.log
 
+bespin.tmproj
+plugins/thirdparty/highlight_all.v1.js
+plugins/thirdparty/highlight_all.v2.js
+psd/
+
