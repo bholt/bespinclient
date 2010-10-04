@@ -49,8 +49,25 @@
     }
 
     .bespin-toolbar li {
-        display: inline;
+        float: left;
         padding: 0px 24px 0px 0px;
+		list-style: none;
+		
+		.toolbar_button {
+			width: 18px;
+			height: 0px;
+			padding-top: 20px;
+			overflow: hidden;
+			display: block;
+			background-repeat: no-repeat;
+			cursor: pointer;
+		}
+		#save_button {
+			background-image: url(icn_save.png);
+		}
+		#save_button:hover {
+			background-image: url(icn_save_on.png);
+		}
     }
 
     .bespin-toolbar-logo {
