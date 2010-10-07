@@ -16,11 +16,11 @@
 					"name": "enable",
 					"type": "text",
 					"description": "Enable or disable bracket matching",
-					"defaultValue": "true"
+					"defaultValue": null
 				}
 			],
 			"description": "Highlight matching brackets",
-			"pointer": "#toggle"
+			"pointer": "#cmdSetEnabled"
 		},
 		{
 			"ep": "setting",
@@ -28,8 +28,8 @@
 			"description": "Highlight matching opening/closing brackets when selected",
 			"type": "text",
 			"defaultValue": "true",
-			"pointer": "#toggle",
-			"register": "#toggle"
+			"pointer": "#cmdSetEnabled",
+			"register": "#cmdSetEnabled"
 		}
 	]
 });
@@ -97,6 +97,9 @@ exports.Matcher.prototype = {
 		{ open: '<', close: '>' }
 	],
 	
+	// 
+	_enabled: false,
+	
 	// Syntax highlighter tags to ignore
 	_ignoreRegex: /^(string|comment)$/i,
 	
@@ -112,6 +115,11 @@ exports.Matcher.prototype = {
 		
 		// Remove any existing highlights from previous matches
 		this.injector.cleanAll();
+		
+		// Ignore bogus cursor ranges and skip matching if disabled
+		if(!cursorRange || !rangeUtils.isRange(cursorRange) || !this.enabled) {
+			return;
+		}
 		
 		// Take the end position of the cursor range and create a new 1-character range from it
 		var charRange = {
@@ -389,11 +397,32 @@ exports.Matcher.prototype = {
 	
 };
 
+Object.defineProperties(exports.Matcher.prototype, {
+	enabled: {
+		set: function(enable) {
+			// Turn on highlighting
+			if(enable) {
+				this._enabled = true;
+			}
+			// Turn off highlighting
+			else {
+				this._enabled = false;
+			}
+			
+			this.selectionChanged(null);
+		},
+
+		get: function() {
+			return this._enabled;
+		}
+	}
+});
+
 exports.init = function() {
 	if(!exports.instance) {
 		exports.instance = window.matcher = new exports.Matcher(env.editor);
+		exports.instance.selectionChanged(env.editor.selection);
 	}
-	exports.instance.selectionChanged(env.editor.selection);
 };
 
 exports.cleanup = function() {
@@ -403,15 +432,33 @@ exports.cleanup = function() {
 	exports.instance = window.matcher = null;
 };
 
-exports.toggle = function(args, command) {
-	console.log('match_brackets.exports.toggle(', arguments, ')');
+exports.cmdSetEnabled = function(args, request) {
+	//console.log('match_brackets.exports.cmdSetEnabled(', arguments, ')');
+	
+	exports.init();
+	
+	var matcher = exports.instance;
+	
+	// If no "enable" argument is specified, toggle the existing setting value
+	if(typeof args.enable === 'undefined' || args.enable === null) {
+		args.enable = !matcher.enabled;
+	}
 	
 	// Explicitly enable bracket matching
 	if(/^(1|true|yes|on|enable|match)$/i.test(args.enable)) {
-		exports.init();
+		matcher.enabled = true;
+		matcher.selectionChanged(env.editor.selection);
+		
+		request.done('Bracket matching <b>enabled</b>');
 	}
 	// Explicitly disable bracket matching
 	else if(/^(0|false|no|off|disable|no[-_]?match)$/i.test(args.enable)) {
-		exports.cleanup();
+		matcher.enabled = false;
+		
+		request.done('Bracket matching <b>disabled</b>');
+	}
+	// 
+	else {
+		request.done('Bracket matching is <b>' + (matcher.enabled ? 'enabled' : 'disabled') + '</b>');
 	}
 };

@@ -41,6 +41,8 @@ var env = require('environment').env;
 
 var Promise = require('bespin:promise').Promise;
 
+var file_commands = require('file_commands');
+
 var $ = require('jquery').$;
 
 function Logo() {
@@ -86,11 +88,16 @@ exports.Save = function Save() {
 };
 exports.Save.prototype = {
 	init: function() {
-		$(this.element).bind('click',this._save.bind(this));
+		$(this.element).bind('click', this._save.bind(this));
 		//this.element.addEventListener('click', this._save.bind(this));
 	},
 	_save: function() {
-		alert('save clicked');
+		console.log('save button clicked');
+		
+		file_commands.saveCommand({}, {
+			done: function() { console.log('Save.request.done(', arguments, ')'); },
+			async: function() { console.log('Save.request.async(', arguments, ')'); }
+		});
 	}
 }
 

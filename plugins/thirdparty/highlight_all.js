@@ -16,11 +16,11 @@
 					"name": "enable",
 					"type": "text",
 					"description": "Enable or disable occurrence highlighting",
-					"defaultValue": "true"
+					"defaultValue": null
 				}
 			],
 			"description": "Highlight all occurrences of selected text in the editor",
-			"pointer": "#setEnabled"
+			"pointer": "#cmdSetEnabled"
 		},
 		{
 			"ep": "command",
@@ -30,11 +30,11 @@
 					"name": "enable",
 					"type": "text",
 					"description": "Enable or disable case-sensitivity",
-					"defaultValue": "true"
+					"defaultValue": null
 				}
 			],
 			"description": "Force occurrence matching to be case-sensitive or case-insensitive",
-			"pointer": "#setCaseSensitive"
+			"pointer": "#cmdSetCaseSensitive"
 		}
 	]
 });
@@ -64,9 +64,7 @@ NOTES:
 
 ISSUES:
 
-	1.	Scrolling extremely quickly through a large file can create a race condition that results in occurrences not being highlighted
-		until the user scrolls up or down a second time.
-	2.	Double-clicking sometimes highlights all occurrences and then immediately removes the highlights.
+	1.	Double-clicking sometimes highlights all occurrences and then immediately removes the highlights.
 		This strange double-click behavior is part of the Bespin core, not highlight_all, but it would be good to fix the bug anyway.
 		It likely has something to do with the timing of firing the editor's "click" and "double-click" event handlers.
 
@@ -115,6 +113,9 @@ exports.Highlighter = function(editor, caseSensitive) {
 	// Bind event handler for text selection
 	this.editor.selectionChanged.add('highlight_all', this.selectionChanged.bind(this));
 	
+	/** THESE ARE UNNECESSARY - REPLACED BY this.editor.textView.clippingChanged.add(...) **/
+	/*
+	
 	// Bind event handler for scrolling (includes mouse wheel, page up/page down, etc.)
 	this.editor.verticalScroller.valueChanged.add('highlight_all', this.editorChanged.bind(this));
 	this.editor.horizontalScroller.valueChanged.add('highlight_all', this.editorChanged.bind(this));
@@ -123,6 +124,12 @@ exports.Highlighter = function(editor, caseSensitive) {
 	catalog.registerExtension('dimensionsChanged', {
 		pointer: this.editorChanged.bind(this)
 	});
+	
+	*/
+	/** THESE ARE UNNECESSARY - REPLACED BY this.editor.textView.clippingChanged.add(...) **/
+	
+	// Bind event handler for editor clipping change
+	this.editor.textView.clippingChanged.add('highlight_all', this.editorChanged.bind(this));
 	
 	this._log('highlight_all plugin initialized!');
 };
@@ -307,7 +314,7 @@ exports.Highlighter.prototype = {
 		clearTimeout(this._timeout);
 		
 		// Create a new timeout, set to fire in 500 ms (1/2 sec)
-		this._timeout = setTimeout(function() { console.log('Timeout fired'); this.highlightVisible(); }.bind(this), 1000);
+		//this._timeout = setTimeout(function() { console.log('Timeout fired'); this.highlightVisible(); }.bind(this), 1000);
 	},
 	
 	/*
@@ -421,33 +428,61 @@ exports.init = function() {
 	}
 };
 
-exports.setEnabled = function(args, command) {
-	console.log('highlight_all.exports.setEnabled(', arguments, ')');
+exports.cmdSetEnabled = function(args, request) {
+	//console.log('highlight_all.exports.cmdSetEnabled(', arguments, ')');
 	
 	exports.init();
+	
+	// If no "enable" argument is specified, toggle the existing setting value
+	if(typeof args.enable === 'undefined' || args.enable === null) {
+		args.enable = !exports.instance.enabled;
+	}
 	
 	// Explicitly enable occurrence highlighting
 	if(/^(1|true|yes|on|enable|highlight)$/i.test(args.enable)) {
 		exports.instance.enabled = true;
 		exports.instance.selectionChanged(env.editor.selection);
+		
+		request.done('Highlighting turned <b>on</b>');
 	}
 	// Explicitly disable occurrence highlighting
 	else if(/^(0|false|no|off|disable|no[-_]?highlight)$/i.test(args.enable)) {
 		exports.instance.enabled = false;
+		
+		request.done('Highlighting turned <b>off</b>');
+	}
+	// 
+	else {
+		request.done('Highlighting is <b>' + (exports.instance.enabled ? "on" : "off") + '</b>');
 	}
 };
 
-exports.setCaseSensitive = function(args, command) {
-	console.log('highlight_all.exports.setCaseSensitive(', arguments, ')');
+exports.cmdSetCaseSensitive = function(args, request) {
+	//console.log('highlight_all.exports.cmdSetCaseSensitive(', arguments, ')');
 	
 	exports.init();
 	
-	// Explicitly enable occurrence highlighting
-	if(/^(1|true|yes|on|enable|highlight)$/i.test(args.enable)) {
-		exports.instance.caseSensitive = true;
+	var highlighter = exports.instance;
+	
+	// If no "enable" argument is specified, toggle the existing setting value
+	if(typeof args.enable === 'undefined' || args.enable === null) {
+		args.enable = !highlighter.caseSensitive;
 	}
-	// Explicitly disable occurrence highlighting
+	
+	// Explicitly enable case sensitivity
+	if(/^(1|true|yes|on|enable|highlight)$/i.test(args.enable)) {
+		highlighter.caseSensitive = true;
+		
+		request.done('Highlighting is now <b>case sensitive</b>');
+	}
+	// Explicitly disable case sensitivity
 	else if(/^(0|false|no|off|disable|no[-_]?highlight)$/i.test(args.enable)) {
-		exports.instance.caseSensitive = false;
+		highlighter.caseSensitive = false;
+		
+		request.done('Highlighting is now <b>case in-sensitive</b>');
+	}
+	// 
+	else {
+		request.done('Highlighting is <b>case ' + (highlighter.caseSensitive ? '' : 'in-') + 'sensitive</b>');
 	}
 };
