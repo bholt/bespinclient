@@ -23,6 +23,14 @@
 			"pointer": "#cmdSetEnabled"
 		},
 		{
+			"ep": "command",
+			"name": "jumpToMatchingBracket",
+			"description": "Jump to the location of the matching bracket",
+			"key": "ctrl_shift_m",
+			"pointer": "#cmdJumpToMatching",
+			"predicates": { "isTextView": true }
+		},
+		{
 			"ep": "setting",
 			"name": "matchBrackets",
 			"description": "Highlight matching opening/closing brackets when selected",
@@ -36,18 +44,26 @@
 "end";
 
 /*
+HOW TO USE:
+
+	1.	Copy this plugin to the /bespinclient/plugins/thirdparty directory
+	
+	2.	Enable or disable this plugin using the following command in the Bespin command line:
+			{}> matchbrackets [true|false|on|off]
+	
+	3.	Move the cursor to the matching bracket by pressing the following keys simultaneously:
+			CTRL + SHIFT + M (Windows)
+			COMMAND + SHIFT + M (Mac)
+
 ISSUES:
 
-	1.	The "matchbrackets" command doesn't get saved in the
-		command history for some reason.
-
-	2.	The "provides": "setting" object doesn't fully work.
+	1.	The "provides": "setting" object doesn't fully work.
 		The description shows up in the command line, but
 		the pointer is only triggered after this plugin
 		gets loaded (which won't happen until the user
 		enters the "matchbrackets" command in the command line).
 	
-	3.	Bracket matching is not filetype-aware; '<' and '>' should
+	2.	Bracket matching is not filetype-aware; '<' and '>' should
 		be matched in HTML documents but not in scripts.
 */
 
@@ -103,7 +119,12 @@ exports.Matcher.prototype = {
 	// Syntax highlighter tags to ignore
 	_ignoreRegex: /^(string|comment)$/i,
 	
+	// Current selected/matching pair positions
+	_curPair: null,
+	
+	// Remove highlights and remove this object from the editor's selectionChanged event handlers
 	cleanup: function() {
+		this._curPair = null;
 		this.injector.cleanAll();
 		this.editor.selectionChanged.remove(this);
 	},
@@ -112,6 +133,8 @@ exports.Matcher.prototype = {
 	selectionChanged: function(cursorRange) {
 		// Start performance profiling
 		this._profile();
+		
+		this._curPair = null;
 		
 		// Remove any existing highlights from previous matches
 		this.injector.cleanAll();
@@ -370,11 +393,19 @@ exports.Matcher.prototype = {
 			tag: 'bracket_matching'
 		};
 		
-		var sameRow = selectedRow === matchingRow;
-		var adjacentCols = Math.abs(selectedColor.end - matchingColor.start) === 0 || Math.abs(selectedColor.start - matchingColor.end) === 0;
+		this._curPair = {
+			selected: { row: selectedRow, col: selectedColor.end },
+			matching: { row: matchingRow, col: matchingColor.end }
+		};
 		
 		this.injector.inject(matchingRow, matchingColor);
 		this.injector.inject(selectedRow, selectedColor);
+	},
+	
+	jumpToMatching: function() {
+		if(this.enabled && this._curPair) {
+			this.editor.setCursor(this._curPair.matching);
+		}
 	},
 	
 	_log: function() {
@@ -433,10 +464,10 @@ exports.cleanup = function() {
 };
 
 exports.cmdSetEnabled = function(args, request) {
-	//console.log('match_brackets.exports.cmdSetEnabled(', arguments, ')');
-	
+	// Create a new Matcher object
 	exports.init();
 	
+	// Variable alias
 	var matcher = exports.instance;
 	
 	// If no "enable" argument is specified, toggle the existing setting value
@@ -457,8 +488,17 @@ exports.cmdSetEnabled = function(args, request) {
 		
 		request.done('Bracket matching <b>disabled</b>');
 	}
-	// 
+	// Display current setting
 	else {
 		request.done('Bracket matching is <b>' + (matcher.enabled ? 'enabled' : 'disabled') + '</b>');
 	}
 };
+
+exports.cmdJumpToMatching = function(args, request) {
+	// Create and enable the matcher if it hasn't been initialized yet
+	if(!exports.instance) {
+		exports.cmdSetEnabled({ enable: true }, { done: function() {} });
+	}
+	
+	exports.instance.jumpToMatching();
+}
