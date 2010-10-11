@@ -475,22 +475,30 @@ exports.cmdSetEnabled = function(args, request) {
 		args.enable = !matcher.enabled;
 	}
 	
+	var message = '';
+	
 	// Explicitly enable bracket matching
 	if(/^(1|true|yes|on|enable|match)$/i.test(args.enable)) {
 		matcher.enabled = true;
 		matcher.selectionChanged(env.editor.selection);
 		
-		request.done('Bracket matching <b>enabled</b>');
+		message = 'Bracket matching <b>enabled</b>';
 	}
 	// Explicitly disable bracket matching
 	else if(/^(0|false|no|off|disable|no[-_]?match)$/i.test(args.enable)) {
 		matcher.enabled = false;
 		
-		request.done('Bracket matching <b>disabled</b>');
+		message = 'Bracket matching <b>disabled</b>';
 	}
 	// Display current setting
 	else {
-		request.done('Bracket matching is <b>' + (matcher.enabled ? 'enabled' : 'disabled') + '</b>');
+		message = 'Bracket matching is <b>' + (matcher.enabled ? 'enabled' : 'disabled') + '</b>';
+	}
+	
+	// Display a message in the command input log if the user typed in a command
+	// (but not if they hit the keystroke CTRL + SHIFT + M)
+	if(request.typed) {
+		request.done(message);
 	}
 };
 
@@ -499,6 +507,8 @@ exports.cmdJumpToMatching = function(args, request) {
 	if(!exports.instance) {
 		exports.cmdSetEnabled({ enable: true }, { done: function() {} });
 	}
-	
-	exports.instance.jumpToMatching();
+	// Jump to the matching bracket if the plugin has already been initialized
+	else {
+		exports.instance.jumpToMatching();
+	}
 }

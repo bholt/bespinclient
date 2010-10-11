@@ -19,6 +19,7 @@
 					"defaultValue": null
 				}
 			],
+			"key": "ctrl_shift_h",
 			"description": "Highlight all occurrences of selected text in the editor",
 			"pointer": "#cmdSetEnabled"
 		},
@@ -438,22 +439,30 @@ exports.cmdSetEnabled = function(args, request) {
 		args.enable = !exports.instance.enabled;
 	}
 	
+	var message = '';
+	
 	// Explicitly enable occurrence highlighting
 	if(/^(1|true|yes|on|enable|highlight)$/i.test(args.enable)) {
 		exports.instance.enabled = true;
 		exports.instance.selectionChanged(env.editor.selection);
 		
-		request.done('Highlighting turned <b>on</b>');
+		message = 'Highlighting turned <b>on</b>';
 	}
 	// Explicitly disable occurrence highlighting
 	else if(/^(0|false|no|off|disable|no[-_]?highlight)$/i.test(args.enable)) {
 		exports.instance.enabled = false;
 		
-		request.done('Highlighting turned <b>off</b>');
+		message = 'Highlighting turned <b>off</b>';
 	}
 	// 
 	else {
-		request.done('Highlighting is <b>' + (exports.instance.enabled ? "on" : "off") + '</b>');
+		message = 'Highlighting is <b>' + (exports.instance.enabled ? "on" : "off") + '</b>';
+	}
+	
+	// Display a message in the command input log if the user typed in a command
+	// (but not if they hit the keystroke CTRL + SHIFT + H)
+	if(request.typed) {
+		request.done(message);
 	}
 };
 
