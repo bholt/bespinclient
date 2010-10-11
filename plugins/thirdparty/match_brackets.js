@@ -503,8 +503,8 @@ exports.cmdSetEnabled = function(args, request) {
 };
 
 exports.cmdJumpToMatching = function(args, request) {
-	// Create and enable the matcher if it hasn't been initialized yet
-	if(!exports.instance) {
+	// Enable the matcher if it is disabled or has not been initialized yet
+	if(!exports.instance || !exports.instance.enabled) {
 		exports.cmdSetEnabled({ enable: true }, { done: function() {} });
 	}
 	// Jump to the matching bracket if the plugin has already been initialized
