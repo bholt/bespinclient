@@ -41,6 +41,16 @@
             "name": "openfileindicator",
             "pointer": "items#OpenFileIndicator"
         },
+		{
+			"ep": "toolbaritem",
+			"name": "new",
+			"pointer": "items#New"
+		},
+		{
+			"ep": "toolbaritem",
+			"name": "open",
+			"pointer": "items#Open"
+		},
         {
             "ep": "toolbaritem",
             "name": "save",
