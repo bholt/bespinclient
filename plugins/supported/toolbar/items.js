@@ -73,23 +73,49 @@ exports.OpenFileIndicator.prototype = {
 		//alert('will change buffer called ' + newBuffer._file.path);
 		//range = range || env.editor.selection;
 		//if (newBuffer._file) {
-			this.element.innerHTML = newBuffer._file.path;
+		this.element.innerHTML = newBuffer._file.path;
 		//} else {
 			//this.element.innerHTML = '**newfile**';
 		//}
 	}
 };
 
+exports.New = function New() {
+    this.element = document.createElement('li');
+	this.element.innerHTML = "<a id='new-button' class='toolbar-button'>New</a>"
+	this.init.call(this);
+};
+exports.New.prototype = {
+	init: function() {
+		$(this.element).bind('click',this._action.bind(this));
+	},
+	_action: function() {
+		alert('new clicked');
+	}
+}
+
+exports.Open = function Open() {
+    this.element = document.createElement('li');
+	this.element.innerHTML = "<a id='open-button' class='toolbar-button'>Open</a>"
+	this.init.call(this);
+};
+exports.Open.prototype = {
+	init: function() {
+		$(this.element).bind('click',this._action.bind(this));
+	},
+	_action: function() {
+		alert('open clicked');
+	}
+}
 
 exports.Save = function Save() {
     this.element = document.createElement('li');
-	this.element.innerHTML = "<a id='save_button' class='toolbar_button'>Save</a>"
+	this.element.innerHTML = "<a id='save-button' class='toolbar-button' title='Save file'>Save</a>"
 	this.init.call(this);
 };
 exports.Save.prototype = {
 	init: function() {
 		$(this.element).bind('click', this._save.bind(this));
-		//this.element.addEventListener('click', this._save.bind(this));
 	},
 	_save: function() {
 		console.log('save button clicked');
@@ -104,6 +130,8 @@ exports.Save.prototype = {
 
 exports.PositionIndicator = function PositionIndicator() {
     this.element = document.createElement('li');
+	this.element.id = 'position-indicator';
+	
     this.init.call(this);
 };
 
