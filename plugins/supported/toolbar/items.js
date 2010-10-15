@@ -109,20 +109,41 @@ exports.Open.prototype = {
 }
 
 exports.Save = function Save() {
+	// 
+	// Method 1: Plain DOM Objects
+	//
+	
     this.element = document.createElement('li');
 	this.element.innerHTML = "<a id='save-button' class='toolbar-button' title='Save file'>Save</a>"
+	
+	//
+	// Method 2: jQuery Objects
+	//
+	
+	// See http://api.jquery.com/get/
+	var $element = $('<li><a id="save-button" class="toolbar-button" title="Save file">Save</a></li>');
+	this.element = $element.get(0);
+	
+	// It might be even better to store this.element as a jQuery object instead of a DOM object;
+	// it would be more efficient in the long run and would give us greater control.
+	
 	this.init.call(this);
 };
 exports.Save.prototype = {
 	init: function() {
-		$(this.element).bind('click', this._save.bind(this));
+		$(this.element)
+			.bind('click', this._save.bind(this))
+			.attr('title', 'Testing 123'); // Titles don't seem to show up for some reason
 	},
 	_save: function() {
 		console.log('save button clicked');
 		
 		file_commands.saveCommand({}, {
-			done: function() { console.log('Save.request.done(', arguments, ')'); },
-			async: function() { console.log('Save.request.async(', arguments, ')'); }
+			// Ajax callback function (fired immediately after GET request receives a response)
+			async: function() { console.log('Save.request.async(', arguments, ')'); },
+			
+			// Fired after any post-ajax processing
+			done: function() { console.log('Save.request.done(', arguments, ')'); }
 		});
 	}
 }
@@ -148,5 +169,28 @@ exports.PositionIndicator.prototype = {
 		this.element.innerHTML = "Row: " + (range.end.row + 1) + " Col: " + (range.end.col + 1);
 	}
 };
+
+/*
+// Function signature for "button group":
+buttonGroup.add({
+	'name': 'save',
+	'title': 'Tooltip text',
+	
+	'id': 'save-button',
+	'class': '.button .dropdown .extra-class',
+	
+	// Allow any of the following:
+	'contents': '<img src="my-image.png"/>',
+	'contents': document.createElement('img'),
+	'contents': $('<img src="my-image.png"/>'),
+	
+	// Allow any of the following:
+	'command': 'save',
+	'command': file_command.save,
+	'action': function() {
+		file_command.save();
+	}
+});
+*/
 
 exports.Logo = Logo;

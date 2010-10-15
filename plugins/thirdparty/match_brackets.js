@@ -26,7 +26,7 @@
 			"ep": "command",
 			"name": "jumpToMatchingBracket",
 			"description": "Jump to the location of the matching bracket",
-			"key": "ctrl_shift_m",
+			"key": ["ctrl_b", "ctrl_shift_b"],
 			"pointer": "#cmdJumpToMatching",
 			"predicates": { "isTextView": true }
 		},
@@ -52,8 +52,8 @@ HOW TO USE:
 			{}> matchbrackets [true|false|on|off]
 	
 	3.	Move the cursor to the matching bracket by pressing the following keys simultaneously:
-			CTRL + SHIFT + M (Windows)
-			COMMAND + SHIFT + M (Mac)
+			CTRL + B (Windows)
+			COMMAND + B (Mac)
 
 ISSUES:
 
