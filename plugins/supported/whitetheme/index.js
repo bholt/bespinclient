@@ -199,7 +199,6 @@ exports.whiteTheme = function() {
             },
 
             highlighterBG: {
-                plain:      '#ffffff',
                 addition:   '#008000',
                 deletion:   '#800000',
                 occurrence: '#ffffff'
