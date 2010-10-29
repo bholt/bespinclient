@@ -60,6 +60,12 @@
             "ep": "toolbaritem",
             "name": "positionindicator",
             "pointer": "items#PositionIndicator"
+        },
+		{
+            "ep": "notification",
+            "name": "buffersaved",
+            "level": "info",
+            "description": "Current buffer was saved to file."
         }
     ]
 }

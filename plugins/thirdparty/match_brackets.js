@@ -110,8 +110,118 @@ exports.Matcher.prototype = {
 		{ open: '(', close: ')' },
 		{ open: '[', close: ']' },
 		{ open: '{', close: '}' },
-		{ open: '<', close: '>' }
+		{ open: '<', close: '>', strategy: 'html' },
+		{ open: '"', close: '"', strategy: 'quote' }
 	],
+	
+	searchStrategies: {
+		'default': {
+			// Forward: --->
+			'1': {
+				next: function(data) {
+					var selectedIndex = data.line.indexOf(data.pair.selected, data.col);
+					var matchingIndex = data.line.indexOf(data.pair.matching, data.col);
+
+					// Neither character is present in the current line
+					if(matchingIndex === -1 && selectedIndex === -1) {
+						data.col = -1;
+					}
+					// Matching char exists and is CLOSER THAN (before) the selected char
+					else if(matchingIndex > -1 && (matchingIndex < selectedIndex || selectedIndex === -1)) {
+						var range = this.getCharRange(data, matchingIndex);
+
+						if(!this.ignoreChar(range)) {
+							data.sum += 1;
+						}
+
+						data.col = matchingIndex + 1;
+					}
+					// Matching char does not exist or is AFTER selected char
+					else {
+						var range = this.getCharRange(data, selectedIndex);
+
+						if(!this.ignoreChar(range)) {
+							data.sum -= 1;
+						}
+
+						data.col = selectedIndex + 1;
+					}
+				}
+			},
+
+			// Backward: <---
+			'-1': {
+				next: function(data) {
+					var selectedIndex = data.line.lastIndexOf(data.pair.selected, data.col);
+					var matchingIndex = data.line.lastIndexOf(data.pair.matching, data.col);
+
+					// Neither character is present in the current line
+					if(matchingIndex === -1 && selectedIndex === -1) {
+						data.col = -1;
+					}
+					// Matching char is CLOSER THAN (after) the selected char
+					else if(matchingIndex > selectedIndex) {
+						var range = this.getCharRange(data, matchingIndex);
+
+						if(!this.ignoreChar(range)) {
+							data.sum += 1;
+						}
+
+						data.col = matchingIndex - 1;
+					}
+					// Matching char does not exist or is AFTER selected char
+					else {
+						var range = this.getCharRange(data, selectedIndex);
+
+						if(!this.ignoreChar(range)) {
+							data.sum -= 1;
+						}
+
+						data.col = selectedIndex - 1;
+					}
+				}
+			}
+		},
+		'html': {
+			'1': {
+				next: function(data) {
+					console.log('searchStrategies.html[+1].next(', data, ')');
+					console.log('\tcolors: ', this._getRowColors(data.row));
+					data.row += 1;
+				}
+			},
+			'-1': {
+				next: function(data) {
+					var color = this.injector.getColorAt({ row: data.row, col: data.col });
+					console.log('searchStrategies.html[-1].next(', data, ')');
+					console.log('\tcolors: ', this._getRowColors(data.row));
+					data.row -= 1;
+				}
+			}
+		},
+		'quote': {
+			'1': {
+				next: function(data) {
+					var color = this.injector.getColorAt({ row: data.row, col: data.col });
+					console.log('searchStrategies.quote[+1].next(', data, ')');
+					console.log('\tcolors: ', this._getRowColors(data.row));
+					data.row += 1;
+				}
+			},
+			'-1': {
+				next: function(data) {
+					var color = this.injector.getColorAt({ row: data.row, col: data.col });
+					console.log('searchStrategies.quote[-1].next(', data, ')');
+					console.log('\tcolors: ', this._getRowColors(data.row));
+					data.row -= 1;
+				}
+			}
+		}
+	},
+	
+	_getRowColors: function(row) {
+		return this.editor.layoutManager.textLines[row];
+	},
 	
 	// 
 	_enabled: false,
@@ -180,7 +290,8 @@ exports.Matcher.prototype = {
 				return {
 					selected: pair.open,
 					matching: pair.close,
-					direction: +1
+					strategy: pair.strategy,
+					direction: +1,
 				};
 			}
 			// Closing character
@@ -188,12 +299,32 @@ exports.Matcher.prototype = {
 				return {
 					selected: pair.close,
 					matching: pair.open,
+					strategy: pair.strategy,
 					direction: -1
 				};
 			}
 		}
 		
 		return;
+	},
+	
+	getSearchStrategy: function(pair) {
+		var searchStrategy = pair.strategy;
+		
+		// Strategy name: 'html'
+		if(util.isString(searchStrategy)) {
+			searchStrategy = this.searchStrategies[searchStrategy];
+		}
+		// Strategy object: { '1': { next: function(data) { ... } }, '-1': { ... }}
+		else if(util.isObject(searchStrategy)) {
+			searchStrategy = searchStrategy;
+		}
+		// Nada, return default
+		else {
+			searchStrategy = this.searchStrategies['default'];
+		}
+		
+		return searchStrategy[pair.direction]
 	},
 	
 	// Generate a data object for the given cursor range
@@ -244,7 +375,7 @@ exports.Matcher.prototype = {
 		
 		if(data) {
 			// Load the appropriate search strategy based on what direction we need to search (forward or backward)
-			var searchStrategy = this.searchStrategies[data.pair.direction];
+			var searchStrategy = this.getSearchStrategy(data.pair);
 			
 			// Iterate over each line until the sum reaches zero or we've reached the beginning or end of the file
 			for( ; data.sum !== 0 && data.row >= 0 && data.row < data.lines.length; data.row += data.pair.direction) {
@@ -275,74 +406,6 @@ exports.Matcher.prototype = {
 			// Better luck next time
 			else {
 				this._log('Not found!');
-			}
-		}
-	},
-	
-	searchStrategies: {
-		// Forward: --->
-		'1': {
-			next: function(data) {
-				var selectedIndex = data.line.indexOf(data.pair.selected, data.col);
-				var matchingIndex = data.line.indexOf(data.pair.matching, data.col);
-				
-				// Neither character is present in the current line
-				if(matchingIndex === -1 && selectedIndex === -1) {
-					data.col = -1;
-				}
-				// Matching char exists and is CLOSER THAN (before) the selected char
-				else if(matchingIndex > -1 && (matchingIndex < selectedIndex || selectedIndex === -1)) {
-					var range = this.getCharRange(data, matchingIndex);
-					
-					if(!this.ignoreChar(range)) {
-						data.sum += 1;
-					}
-					
-					data.col = matchingIndex + 1;
-				}
-				// Matching char does not exist or is AFTER selected char
-				else {
-					var range = this.getCharRange(data, selectedIndex);
-					
-					if(!this.ignoreChar(range)) {
-						data.sum -= 1;
-					}
-					
-					data.col = selectedIndex + 1;
-				}
-			}
-		},
-		
-		// Backward: <---
-		'-1': {
-			next: function(data) {
-				var selectedIndex = data.line.lastIndexOf(data.pair.selected, data.col);
-				var matchingIndex = data.line.lastIndexOf(data.pair.matching, data.col);
-				
-				// Neither character is present in the current line
-				if(matchingIndex === -1 && selectedIndex === -1) {
-					data.col = -1;
-				}
-				// Matching char is CLOSER THAN (after) the selected char
-				else if(matchingIndex > selectedIndex) {
-					var range = this.getCharRange(data, matchingIndex);
-					
-					if(!this.ignoreChar(range)) {
-						data.sum += 1;
-					}
-					
-					data.col = matchingIndex - 1;
-				}
-				// Matching char does not exist or is AFTER selected char
-				else {
-					var range = this.getCharRange(data, selectedIndex);
-					
-					if(!this.ignoreChar(range)) {
-						data.sum -= 1;
-					}
-					
-					data.col = selectedIndex - 1;
-				}
 			}
 		}
 	},

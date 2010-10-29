@@ -36,13 +36,12 @@
  * ***** END LICENSE BLOCK ***** */
 
 var catalog = require('bespin:plugins').catalog;
-
+var notifier = catalog.getObject('notifier');
 var env = require('environment').env;
-
 var Promise = require('bespin:promise').Promise;
-
 var file_commands = require('file_commands');
-
+var editSession = catalog.getObject('editSession');
+var pathutils = require('filesystem:path');
 var $ = require('jquery').$;
 
 function Logo() {
@@ -70,10 +69,17 @@ exports.OpenFileIndicator.prototype = {
 		}
 	},
 	updateFile: function(newBuffer) {
+		if(newBuffer && newBuffer.file && newBuffer.file.path) {
+			this.element.innerHTML = newBuffer.file.path;
+		} else {
+			setTimeout(this.updateFile(newBuffer).bind(this), 100);
+			this.element.innerHTML = 'Untitled';
+		}
+		
 		//alert('will change buffer called ' + newBuffer._file.path);
 		//range = range || env.editor.selection;
 		//if (newBuffer._file) {
-		this.element.innerHTML = newBuffer._file.path;
+		//this.element.innerHTML = newBuffer._file.path;
 		//} else {
 			//this.element.innerHTML = '**newfile**';
 		//}
@@ -143,7 +149,21 @@ exports.Save.prototype = {
 			async: function() { console.log('Save.request.async(', arguments, ')'); },
 			
 			// Fired after any post-ajax processing
-			done: function() { console.log('Save.request.done(', arguments, ')'); }
+			done: function() {
+				console.log('Save.request.done(', arguments, ')');
+				
+				var filepath = (env.buffer._file.path);
+				var filename = pathutils.basename(filepath);
+				
+				// We probably don't actually want to keep this, but it's handy to have as a reference.
+				// It would be better to use some other means of graphically communicating that the buffer has been saved.
+				notifier.notify({
+					plugin: 'toolbar',
+					notification: 'buffersaved',
+					title: 'Saved',
+					body: filename + ' was successfully saved.'
+				});
+			}
 		});
 	}
 }

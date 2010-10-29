@@ -85,6 +85,8 @@ var $ = require('jquery').$;
 var catalog = require('bespin:plugins').catalog;
 var settings = require('settings').settings;
 
+//var ColorInjector = require('color_injector').ColorInjector;
+
 var ColorInjector = require('color_injector').ColorInjector;
 
 // Utility function to escape special regex "metacharacters" in a string.
@@ -344,7 +346,10 @@ exports.Highlighter.prototype = {
 			// Loop backwards through each occurrence in the row
 			for(var j = curRow.length - 1; j >= 0; j--) {
 				// Remove the last occurrence from the array and highlight it
-				this._highlightRange(curRow.pop());
+				//this._highlightRange(curRow.pop());
+				
+				// 
+				this._highlightRange(curRow[j]);
 			}
 		}
 	},
