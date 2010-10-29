@@ -42,7 +42,7 @@ import paver.virtual
 
 setup(
     name="dryice",
-    version="0.9a3",
+    version="0.9a2",
     packages=["dryice"],
     entry_points="""
 [console_scripts]
@@ -52,7 +52,7 @@ dryice=dryice.tool:main
 
 options(
     version=Bunch(
-        number="0.9a3",
+        number="0.9a2",
         name="Edison",
         api="4"
     ),
@@ -61,8 +61,8 @@ options(
     ),
     server=Bunch(
         # set to true to allow connections from other machines
-        address="",
-        port="8080",
+        address="0.0.0.0",
+        port="8135",
         try_build=False,
         dburl=None,
         async=False,

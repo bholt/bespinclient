@@ -87,30 +87,79 @@ exports.OpenFileIndicator.prototype = {
 };
 
 exports.New = function New() {
+	// 
+	// Method 1: Plain DOM Objects
+	//
     this.element = document.createElement('li');
-	this.element.innerHTML = "<a id='new-button' class='toolbar-button'>New</a>"
+	this.element.innerHTML = "<a id='new-button' class='toolbar-button' title='New file'>New</a>"
+	
+	//
+	// Method 2: jQuery Objects
+	//
+	
+	// See http://api.jquery.com/get/
+	var $element = $('<li><a id="new-button" class="toolbar-button" title="New file">New</a></li>');
+	this.element = $element.get(0);
+	
+	// It might be even better to store this.element as a jQuery object instead of a DOM object;
+	// it would be more efficient in the long run and would give us greater control.
+	
 	this.init.call(this);
 };
 exports.New.prototype = {
 	init: function() {
-		$(this.element).bind('click',this._action.bind(this));
+		$(this.element)
+			.bind('click',this._new.bind(this));
 	},
-	_action: function() {
-		alert('new clicked');
+	_new: function() {
+		console.log('new button clicked');
+		env.commandLine.setInput('newfile ');
+		
+		/*file_commands.newfileCommand({}, {
+			// Ajax callback function (fired immediately after GET request receives a response)
+			async: function() { console.log('New.request.async(', arguments, ')'); },
+			
+			// Fired after any post-ajax processing
+			done: function() { console.log('New.request.done(', arguments, ')'); }
+		});*/
 	}
 }
 
 exports.Open = function Open() {
+	// 
+	// Method 1: Plain DOM Objects
+	//
     this.element = document.createElement('li');
-	this.element.innerHTML = "<a id='open-button' class='toolbar-button'>Open</a>"
+	this.element.innerHTML = "<a id='open-button' class='toolbar-button' title='Open file'>Open</a>"
+	
+	//
+	// Method 2: jQuery Objects
+	//
+	
+	// See http://api.jquery.com/get/
+	var $element = $('<li><a id="open-button" class="toolbar-button" title="Open file">Open</a></li>');
+	this.element = $element.get(0);
+	
+	// It might be even better to store this.element as a jQuery object instead of a DOM object;
+	// it would be more efficient in the long run and would give us greater control.
+	
 	this.init.call(this);
 };
 exports.Open.prototype = {
 	init: function() {
-		$(this.element).bind('click',this._action.bind(this));
+		$(this.element)
+			.bind('click',this._open.bind(this));
 	},
-	_action: function() {
-		alert('open clicked');
+	_open: function() {
+		console.log('open button clicked');
+		
+		file_commands.openCommand({}, {
+			// Ajax callback function (fired immediately after GET request receives a response)
+			async: function() { console.log('Open.request.async(', arguments, ')'); },
+			
+			// Fired after any post-ajax processing
+			done: function() { console.log('Open.request.done(', arguments, ')'); }
+		});
 	}
 }
 
