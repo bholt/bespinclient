@@ -136,7 +136,7 @@ util.mixin(KeyboardManager.prototype, {
         } else {
             return false;
         }
-    },
+    }, 
 
     _buildBindingsRegex: function(bindings) {
         // Escape a given Regex string.

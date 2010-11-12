@@ -52,6 +52,10 @@
             "key": "ctrl_j",
             "predicates": {"isCommandLine": true, "isKeyUp": false},
             "pointer": "#jumpEditor"
+        },
+        {
+            "ep": "command",
+            "name": "jump-from-toolbar"
         }
     ]
 });

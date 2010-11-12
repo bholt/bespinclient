@@ -62,7 +62,7 @@ options(
     server=Bunch(
         # set to true to allow connections from other machines
         address="0.0.0.0",
-        port="8135",
+        port="8133",
         try_build=False,
         dburl=None,
         async=False,

@@ -218,6 +218,89 @@ exports.Save.prototype = {
 }
 
 
+
+exports.Undo = function Undo() {
+	// 
+	// Method 1: Plain DOM Objects
+	//
+	
+    this.element = document.createElement('li');
+	this.element.innerHTML = "<a id='undo-button' class='toolbar-button' title='Undo'>Undo</a>"
+	
+	//
+	// Method 2: jQuery Objects
+	//
+	
+	// See http://api.jquery.com/get/
+	var $element = $('<li><a id="undo-button" class="toolbar-button" title="Undo">Undo</a></li>');
+	this.element = $element.get(0);
+	
+	// It might be even better to store this.element as a jQuery object instead of a DOM object;
+	// it would be more efficient in the long run and would give us greater control.
+	
+	this.init.call(this);
+};
+
+exports.Undo.prototype = {
+	init: function() {
+		$(this.element)
+			.bind('click',this._undo.bind(this));
+	},
+	_undo: function() {
+		console.log('undo button clicked');
+		
+		env.editor.buffer.undoManager.undo({}, {
+			// Ajax callback function (fired immediately after GET request receives a response)
+			async: function() { console.log('Undo.request.async(', arguments, ')'); },
+			
+			// Fired after any post-ajax processing
+			done: function() { console.log('Undo.request.done(', arguments, ')'); }
+		});
+	}
+}
+
+exports.Redo = function Redo() {
+	// 
+	// Method 1: Plain DOM Objects
+	//
+	
+    this.element = document.createElement('li');
+	this.element.innerHTML = "<a id='redo-button' class='toolbar-button' title='Redo'>Redo</a>"
+	
+	//
+	// Method 2: jQuery Objects
+	//
+	
+	// See http://api.jquery.com/get/
+	var $element = $('<li><a id="redo-button" class="toolbar-button" title="Redo">Redo</a></li>');
+	this.element = $element.get(0);
+	
+	// It might be even better to store this.element as a jQuery object instead of a DOM object;
+	// it would be more efficient in the long run and would give us greater control.
+	
+	this.init.call(this);
+};
+
+exports.Redo.prototype = {
+	init: function() {
+		$(this.element)
+			.bind('click',this._redo.bind(this));
+	},
+	_redo: function() {
+		console.log('redo button clicked');
+		
+		env.editor.buffer.undoManager.redo({}, {
+			// Ajax callback function (fired immediately after GET request receives a response)
+			async: function() { console.log('Redo.request.async(', arguments, ')'); },
+			
+			// Fired after any post-ajax processing
+			done: function() { console.log('Redo.request.done(', arguments, ')'); }
+		});
+	}
+}
+
+
+
 exports.PositionIndicator = function PositionIndicator() {
     this.element = document.createElement('li');
 	this.element.id = 'position-indicator';

@@ -1,7 +1,9 @@
 {
     "description": "The standard Bespin toolbar",
     "dependencies": {
-        "events": "0.0.0", "file_commands": "0.0.0"
+        "events": "0.0.0", 
+        "file_commands": "0.0.0",
+        "keyboard": "0.0.0"
     },
     "provides": [
         {
@@ -55,6 +57,16 @@
             "ep": "toolbaritem",
             "name": "save",
             "pointer": "items#Save"
+        },
+		        {
+            "ep": "toolbaritem",
+            "name": "undo",
+            "pointer": "items#Undo"
+        },
+		        {
+            "ep": "toolbaritem",
+            "name": "redo",
+            "pointer": "items#Redo"
         },
         {
             "ep": "toolbaritem",
